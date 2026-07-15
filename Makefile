@@ -1,7 +1,7 @@
 .PHONY: test ingest eval gate simulate all
 
 test:
-	python -m pytest -v
+	python -m pytest -q
 
 ingest:
 	python -m ingest --corpus-root data/corpus --mutable-version v2 --index-dir .index
@@ -15,5 +15,4 @@ gate:
 simulate:
 	python -m eval.simulate_regressions
 
-all: test
-	@echo "TODO: full pipeline (ingest -> eval -> gate)"
+all: test ingest eval gate

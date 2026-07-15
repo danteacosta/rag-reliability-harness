@@ -1,0 +1,8 @@
+{
+  "recall@5": 1.0,
+  "precision@5": 0.2,
+  "mrr": 0.8805555555555555,
+  "groundedness": 1.0,
+  "refusal_accuracy": 1.0,
+  "drift_ok": true
+}

@@ -1,0 +1,14 @@
+# Absolute floors + max allowed regression vs baseline.
+k: 5
+require_drift_ok: true   # happy-path CI must have fingerprint match
+floors:
+  recall@5: 0.70
+  precision@5: 0.20
+  mrr: 0.55
+  groundedness: 0.85
+  refusal_accuracy: 0.90
+max_slip:
+  recall@5: 0.05
+  mrr: 0.05
+  groundedness: 0.05
+  refusal_accuracy: 0.05

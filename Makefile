@@ -10,7 +10,7 @@ eval:
 	python -m eval
 
 gate:
-	@echo "TODO: enforce reliability gate thresholds"
+	python -m gates
 
 simulate:
 	@echo "TODO: simulate failure modes"

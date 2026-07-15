@@ -51,6 +51,16 @@ Injected regressions on a public FastAPI-style fixture corpus (no company data).
 
 GitHub Actions runs the offline eval suite on every push and pull request: `pytest` → ingest (`mutable/v2`) → `python -m eval` → `python -m gates`. No secrets. Replace `YOUR_GITHUB_USER` in the badge URL after you push the remote.
 
+## Acceptance criteria (ATDD)
+
+Done is defined by five caller-visible acceptance tests in `tests/test_acceptance.py` (see `docs/superpowers/plans/2026-07-15-atdd-retrofit.md`):
+
+1. Happy-path offline gate passes (`drift_ok`, no API keys)
+2. Stale-context injection fails the gate
+3. Ambiguous-ranking injection fails the gate
+4. Unsupported always-answer injection fails the gate
+5. Full suite + CI workflow require no secrets
+
 ## Quickstart
 
 ```bash

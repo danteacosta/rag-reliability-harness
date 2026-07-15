@@ -7,7 +7,7 @@ ingest:
 	python -m ingest --corpus-root data/corpus --mutable-version v2 --index-dir .index
 
 eval:
-	@echo "TODO: run retrieval/answer evaluation"
+	python -m eval
 
 gate:
 	@echo "TODO: enforce reliability gate thresholds"

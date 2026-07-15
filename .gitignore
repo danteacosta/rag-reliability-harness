@@ -5,6 +5,7 @@ __pycache__/
 .mypy_cache/
 .ruff_cache/
 .index/
+eval/last_run.json
 *.egg-info/
 dist/
 build/

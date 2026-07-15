@@ -21,6 +21,21 @@ class InMemoryVectorStore:
             self._chunks[chunk.id] = chunk
             self._vectors[chunk.id] = self._embedder.embed(chunk.text)
 
+    @classmethod
+    def from_vectors(
+        cls,
+        embedder: HashEmbedder,
+        chunks: dict[str, Chunk],
+        vectors: dict[str, np.ndarray],
+    ) -> InMemoryVectorStore:
+        store = cls(embedder)
+        store._chunks = dict(chunks)
+        store._vectors = {chunk_id: np.asarray(vec, dtype=np.float64) for chunk_id, vec in vectors.items()}
+        return store
+
+    def export_vectors(self) -> dict[str, np.ndarray]:
+        return dict(self._vectors)
+
     def similarity_search(self, query: str, k: int = 5) -> list[RetrievalHit]:
         if not self._chunks or k <= 0:
             return []

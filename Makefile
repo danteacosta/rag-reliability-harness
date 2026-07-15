@@ -4,7 +4,7 @@ test:
 	python -m pytest -v
 
 ingest:
-	@echo "TODO: ingest corpus into index"
+	python -m ingest --corpus-root data/corpus --mutable-version v2 --index-dir .index
 
 eval:
 	@echo "TODO: run retrieval/answer evaluation"

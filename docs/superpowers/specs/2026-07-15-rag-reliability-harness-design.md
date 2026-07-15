@@ -61,12 +61,24 @@ ingest → retrieve → generate → eval gate
 
 - **Default (CI + local quick path):** in-process Chroma (or FAISS) via a `VectorStore` protocol.
 - **Optional:** pgvector adapter + `docker-compose.yml` for local demo; **not** used in CI.
-- Embeddings: deterministic hash embedding for ultralight CI, or small `sentence-transformers` model when available; CI pins the deterministic path so runs are bit-stable.
+- **CI embeddings (locked):** character n-gram hashed bag-of-features (e.g. hashing trick over 3–5 grams into a fixed dim). Similarity is cosine over those vectors so **lexical overlap drives ranking** — enough for meaningful precision@k / MRR and the ambiguous-ranking demo without downloading models. Optional `sentence-transformers` path exists for local demos only; CI never uses it.
+- **Default `k`:** 5 for all retrieval metrics and the generate top-k context window.
+
+### Query rewrite & cache
+
+- **Rewrite:** deterministic synonym / alias map for FastAPI terms (e.g. `deps` → `dependencies`); no LLM.
+- **Semantic cache:** optional in-memory exact/near-exact query→chunk-ids cache. Not load-bearing for the three failure modes; may be a no-op stub if timeboxed.
 
 ### Generation (offline)
 
 - Build answer by selecting / concatenating top retrieved chunk spans that match the question (extractive).
-- For `unsupported-answer` items: abstain with a fixed refusal string when retrieval confidence is below threshold or no relevant chunks.
+- **Refusal string (locked):** `INSUFFICIENT_CONTEXT` when max retrieval score < threshold or when no chunk passes the relevance cutoff.
+- For `unsupported-answer` items: gold expects that refusal (or equivalent abstention), not a fabricated answer.
+
+### Mutable corpus versioning (happy path)
+
+- Default ingest / CI indexes **mutable `v2`** (current truth).
+- Stale-context simulation forces an index built from **mutable `v1`** while golden still targets `v2`.
 
 ---
 
@@ -136,11 +148,19 @@ Hash of sorted `(doc_id, content_hash)` pairs written at ingest time. Drift metr
 | recall@k | \|retrieved ∩ relevant\| / \|relevant\| |
 | MRR | mean reciprocal rank of first relevant chunk |
 | groundedness | answer tokens/claims supported by retrieved context (lexical containment + refusal handling) |
+| refusal_accuracy | for items with empty `relevant_chunk_ids` (or `failure_mode=unsupported-answer`): 1 iff answer is `INSUFFICIENT_CONTEXT` |
 | drift | corpus fingerprint match boolean (aggregated as pass rate / catch in sim) |
+
+### Metric cohort rules (locked)
+
+- **Retrieval metrics (precision@k, recall@k, MRR):** computed **only** on golden items where `relevant_chunk_ids` is non-empty. Items with empty relevant IDs are **excluded** from those means (avoids divide-by-zero and false precision drag).
+- **Groundedness:** computed on all answered (non-refusal) items; refusals count as grounded.
+- **refusal_accuracy:** computed only on the unsupported / empty-relevant cohort.
+- **drift:** corpus-level, not per-query; evaluated in the stale-context simulation and as a gate check that the active index fingerprint matches the expected fingerprint for the run profile (`happy` → v2, `stale_sim` → intentionally mismatched).
 
 **Gate inputs:**
 
-- `eval/thresholds.yaml` — absolute floors (e.g. recall@5 ≥ 0.75).
+- `eval/thresholds.yaml` — absolute floors (e.g. recall@5 ≥ 0.75, refusal_accuracy ≥ 0.90).
 - `eval/baselines/ci.json` — committed baseline from a known-good run.
 - Fail if any metric below threshold **or** delta vs baseline worse than allowed slip (e.g. −0.05).
 

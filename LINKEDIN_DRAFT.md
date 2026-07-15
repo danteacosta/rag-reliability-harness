@@ -10,7 +10,7 @@ I built an offline RAG reliability harness that treats eval as the product:
 
 Demos impress for 30 seconds. Eval gates protect the next release.
 
-Repo: `https://github.com/YOUR_GITHUB_USER/rag-reliability-harness`
+Repo: `https://github.com/danteacosta/rag-reliability-harness`
 
 ---
 
@@ -22,4 +22,4 @@ Montei um harness offline de confiabilidade: golden set, gate no CI (sem API key
 
 Demo impressiona 30 segundos. Eval protege o próximo release.
 
-Repo: `https://github.com/YOUR_GITHUB_USER/rag-reliability-harness`
+Repo: `https://github.com/danteacosta/rag-reliability-harness`

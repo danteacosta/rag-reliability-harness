@@ -2,7 +2,7 @@
 
 Offline-first RAG eval gate: catch stale context, bad ranking, and unsupported answers in CI — no API keys required.
 
-![eval-gate](https://github.com/YOUR_GITHUB_USER/rag-reliability-harness/actions/workflows/eval.yml/badge.svg)
+![eval-gate](https://github.com/danteacosta/rag-reliability-harness/actions/workflows/eval.yml/badge.svg)
 
 ## Flow
 
@@ -47,9 +47,9 @@ Injected regressions on a public FastAPI-style fixture corpus (no company data).
 
 ## CI
 
-![eval-gate](https://github.com/YOUR_GITHUB_USER/rag-reliability-harness/actions/workflows/eval.yml/badge.svg)
+![eval-gate](https://github.com/danteacosta/rag-reliability-harness/actions/workflows/eval.yml/badge.svg)
 
-GitHub Actions runs the offline eval suite on every push and pull request: `pytest` → ingest (`mutable/v2`) → `python -m eval` → `python -m gates`. No secrets. Replace `YOUR_GITHUB_USER` in the badge URL after you push the remote.
+GitHub Actions runs the offline eval suite on every push and pull request: `pytest` → ingest (`mutable/v2`) → `python -m eval` → `python -m gates`. No secrets. Replace `danteacosta` in the badge URL after you push the remote.
 
 ## Acceptance criteria (ATDD)
 

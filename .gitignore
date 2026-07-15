@@ -6,6 +6,7 @@ __pycache__/
 .ruff_cache/
 .index/
 eval/last_run.json
+eval/sim_report.json
 *.egg-info/
 dist/
 build/

@@ -13,7 +13,7 @@ gate:
 	python -m gates
 
 simulate:
-	@echo "TODO: simulate failure modes"
+	python -m eval.simulate_regressions
 
 all: test
 	@echo "TODO: full pipeline (ingest -> eval -> gate)"

@@ -53,7 +53,7 @@ GitHub Actions runs the offline eval suite on every push and pull request: `pyte
 
 ## Acceptance criteria (ATDD)
 
-Done is defined by five caller-visible acceptance tests in `tests/test_acceptance.py` (see `docs/superpowers/plans/2026-07-15-atdd-retrofit.md`):
+Done is defined by five caller-visible acceptance tests in `tests/test_acceptance.py`:
 
 1. Happy-path offline gate passes (`drift_ok`, no API keys)
 2. Stale-context injection fails the gate

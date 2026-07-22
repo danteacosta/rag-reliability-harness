@@ -1,4 +1,4 @@
-.PHONY: test ingest eval gate simulate all
+.PHONY: test ingest eval gate simulate loop all
 
 PYTHON := $(shell if [ -x .venv/bin/python ]; then echo .venv/bin/python; else echo python3; fi)
 
@@ -17,4 +17,7 @@ gate:
 simulate:
 	$(PYTHON) -m eval.simulate_regressions
 
-all: test ingest eval gate
+loop:
+	$(PYTHON) -m loop
+
+all: test ingest eval gate loop

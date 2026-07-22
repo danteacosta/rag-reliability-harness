@@ -16,3 +16,4 @@ jobs:
       - run: python -m ingest --mutable-version v2
       - run: python -m eval
       - run: python -m gates
+      - run: python -m loop

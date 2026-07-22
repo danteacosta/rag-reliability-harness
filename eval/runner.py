@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import time
 from pathlib import Path
 from typing import Any
 
@@ -71,12 +72,15 @@ def run_eval(
 
     per_item: list[dict[str, Any]] = []
     groundedness_scores: list[float] = []
+    latencies_ms: list[float] = []
 
     for item in golden:
+        t0 = time.perf_counter()
         docs = retriever.invoke(item.question)
         hits = [_document_to_hit(doc) for doc in docs]
         retrieved_ids = [hit.chunk_id for hit in hits]
         answer = generate_answer(item.question, hits)
+        latencies_ms.append((time.perf_counter() - t0) * 1000.0)
         contexts = [hit.text for hit in hits]
         g = groundedness(answer, contexts=contexts)
         groundedness_scores.append(g)
@@ -98,6 +102,9 @@ def run_eval(
     mean_groundedness = (
         sum(groundedness_scores) / len(groundedness_scores) if groundedness_scores else 0.0
     )
+    lat_sorted = sorted(latencies_ms)
+    latency_p50 = _percentile(lat_sorted, 50)
+    latency_p95 = _percentile(lat_sorted, 95)
 
     fingerprint_active = load_fingerprint(index_dir)
     fingerprint_expected = compute_expected_fingerprint(
@@ -113,6 +120,8 @@ def run_eval(
         **retrieval,
         "groundedness": mean_groundedness,
         "refusal_accuracy": refusal,
+        "latency_p50_ms": latency_p50,
+        "latency_p95_ms": latency_p95,
         "fingerprint_active": fingerprint_active,
         "fingerprint_expected": fingerprint_expected,
         "drift_ok": is_drift_ok,
@@ -137,6 +146,8 @@ def print_summary(metrics: dict[str, Any]) -> None:
         f"mrr: {metrics.get('mrr', 0.0):.4f}",
         f"groundedness: {metrics.get('groundedness', 0.0):.4f}",
         f"refusal_accuracy: {metrics.get('refusal_accuracy', 0.0):.4f}",
+        f"latency_p50_ms: {metrics.get('latency_p50_ms', 0.0):.2f}",
+        f"latency_p95_ms: {metrics.get('latency_p95_ms', 0.0):.2f}",
         f"drift_ok: {metrics.get('drift_ok')}",
         f"fingerprint_active: {metrics.get('fingerprint_active')}",
         f"fingerprint_expected: {metrics.get('fingerprint_expected')}",
@@ -155,3 +166,15 @@ def _document_to_hit(doc: Any) -> RetrievalHit:
         text=doc.page_content,
         metadata=metadata,
     )
+
+
+def _percentile(sorted_values: list[float], pct: float) -> float:
+    if not sorted_values:
+        return 0.0
+    if len(sorted_values) == 1:
+        return float(sorted_values[0])
+    rank = (pct / 100.0) * (len(sorted_values) - 1)
+    lo = int(rank)
+    hi = min(lo + 1, len(sorted_values) - 1)
+    frac = rank - lo
+    return float(sorted_values[lo] * (1 - frac) + sorted_values[hi] * frac)

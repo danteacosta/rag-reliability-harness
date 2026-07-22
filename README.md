@@ -1,6 +1,6 @@
 # RAG Reliability Harness
 
-Offline-first RAG eval gate: catch stale context, bad ranking, and unsupported answers in CI — no API keys required.
+Offline-first RAG reliability loop: detect corpus drift → re-ingest → eval (golden + traffic sample) → gate → alert with ownership — no API keys required.
 
 ![eval-gate](https://github.com/danteacosta/rag-reliability-harness/actions/workflows/eval.yml/badge.svg)
 
@@ -8,12 +8,14 @@ Offline-first RAG eval gate: catch stale context, bad ranking, and unsupported a
 
 ```mermaid
 flowchart LR
-  A[ingest] --> B[retrieve]
-  B --> C[generate]
+  A[detect drift] --> B[reingest]
+  B --> C[retrieve + generate]
   C --> D[eval gate]
+  D -->|fail| E[alert + owners]
+  D -->|pass| F[healthy status]
 ```
 
-Corpus → chunk/embed → top-k retrieve → extractive answer (or refuse) → metrics vs golden set + baseline. Gate fails the build on regression.
+Closed loop: fingerprint the corpus, rebuild the index when it drifts, score golden + online traffic sample (latency p50/p95), fail the gate on regression, and emit an alert with owning surface (`ingest` / `retrieval` / `generate` / `infra`).
 
 ## Before / after (synthetic, reproducible)
 
@@ -49,17 +51,25 @@ Injected regressions on a public FastAPI-style fixture corpus (no company data).
 
 ![eval-gate](https://github.com/danteacosta/rag-reliability-harness/actions/workflows/eval.yml/badge.svg)
 
-GitHub Actions runs the offline eval suite on every push and pull request: `pytest` → ingest (`mutable/v2`) → `python -m eval` → `python -m gates`. No secrets. Replace `danteacosta` in the badge URL after you push the remote.
+GitHub Actions runs the offline suite on every push and pull request: `pytest` → ingest → eval → gates → **closed loop**. No secrets.
 
 ## Acceptance criteria (ATDD)
 
-Done is defined by five caller-visible acceptance tests in `tests/test_acceptance.py`:
+Done is defined by caller-visible acceptance tests:
 
+**Gate (`tests/test_acceptance.py`)**
 1. Happy-path offline gate passes (`drift_ok`, no API keys)
 2. Stale-context injection fails the gate
 3. Ambiguous-ranking injection fails the gate
 4. Unsupported always-answer injection fails the gate
 5. Full suite + CI workflow require no secrets
+
+**Closed loop (`tests/test_loop_acceptance.py`)**
+1. Stale index triggers re-ingest and healthy gate
+2. Gate failure writes alert JSON with owners
+3. Healthy loop writes status without requiring a webhook
+4. Failure reasons map to ingest/retrieval/generate/infra
+5. Eval reports latency p50/p95
 
 ## Quickstart
 
@@ -69,10 +79,11 @@ pip install -e ".[dev]"
 make all
 ```
 
-Useful targets: `make test`, `make ingest`, `make eval`, `make gate`, `make simulate`.
+Useful targets: `make test`, `make ingest`, `make eval`, `make gate`, `make simulate`, `make loop`.
 
 ## Attribution & optional adapters
 
 - FastAPI-style docs under `data/corpus/fastapi/` are original paraphrases — see [`data/ATTRIBUTION.md`](data/ATTRIBUTION.md).
 - **Optional pgvector:** `docker compose up -d`, set `DATABASE_URL` / `PGVECTOR_DSN` (see `.env.example`). Adapter raises `NotConfiguredError` without a DSN; CI uses the in-memory store.
 - **Optional Langfuse:** set `LANGFUSE_PUBLIC_KEY` + `LANGFUSE_SECRET_KEY`. Without keys the tracer no-ops and records local spans only.
+- **Optional alert webhook:** set `ALERT_WEBHOOK_URL` for `make loop`. On gate failure the loop always writes `loop/last_alert.json` with owners; webhook POST is best-effort.

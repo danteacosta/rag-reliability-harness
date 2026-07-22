@@ -7,6 +7,8 @@ __pycache__/
 .index/
 eval/last_run.json
 eval/sim_report.json
+loop/last_alert.json
+loop/last_status.json
 *.egg-info/
 dist/
 build/

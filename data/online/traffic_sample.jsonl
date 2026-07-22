@@ -1,0 +1,8 @@
+{"id": "t01", "question": "How do I declare a path operation with FastAPI?"}
+{"id": "t02", "question": "What is the default request timeout in seconds?"}
+{"id": "t03", "question": "How do dependencies work with Depends?"}
+{"id": "t04", "question": "How do I enable CORS for a browser client?"}
+{"id": "t05", "question": "What is the list price of Acme Cloud Enterprise?"}
+{"id": "t06", "question": "How do I run a background task after a response?"}
+{"id": "t07", "question": "What OAuth2 flow does the security docs describe?"}
+{"id": "t08", "question": "How do I read settings from environment variables?"}

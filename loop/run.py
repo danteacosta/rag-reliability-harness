@@ -31,7 +31,7 @@ from gates.run import (
 )
 from ingest.pipeline import ingest_corpus, load_fingerprint, load_index
 from loop.alert import emit_alert
-from loop.ownership import owners_for_failures
+from loop.ownership import owners_for_reasons
 from retrieval.retriever import DEFAULT_K, HarnessRetriever
 from protocol_next import EventLog, GateDecision, RunManifest
 from retrieval.adapters import ExtractiveGeneratorAdapter, HarnessRetrievalAdapter
@@ -122,6 +122,7 @@ def _manifest_context(
     baseline_path: Path | str,
     index_hash: str | None,
     mutable_version: str,
+    thresholds: dict[str, Any],
 ) -> tuple[dict[str, str], dict[str, str], dict[str, Any], dict[str, Any]]:
     config = {"mutable_version": mutable_version, "retrieval_k": DEFAULT_K}
     config_hash = hashlib.sha256(
@@ -147,9 +148,19 @@ def _manifest_context(
         "threshold_provenance": {
             "path": str(Path(thresholds_path)),
             "hash": hashes["thresholds"],
+            **dict(thresholds.get("provenance") or {}),
         },
     }
     return identifiers, hashes, metadata, config
+
+
+def classify_drift(active_fingerprint: str | None, expected_fingerprint: str) -> str:
+    """Classify deterministic corpus/index divergence for routing and alerting."""
+    if active_fingerprint is None:
+        return "index_missing"
+    if active_fingerprint != expected_fingerprint:
+        return "corpus_index_mismatch"
+    return "none"
 
 
 def run_closed_loop(
@@ -181,8 +192,9 @@ def run_closed_loop(
     )
     index_exists = (index_dir / "fingerprint.json").is_file()
     active_fp = load_fingerprint(index_dir) if index_exists else None
-    drift_detected = (active_fp is None) or (active_fp != expected_fp)
-    event_log.emit("input.changed", {"drift_detected": drift_detected})
+    drift_classification = classify_drift(active_fp, expected_fp)
+    drift_detected = drift_classification != "none"
+    event_log.emit("input.changed", {"drift_detected": drift_detected, "classification": drift_classification})
 
     reingested = False
     if force_reingest or drift_detected:
@@ -217,7 +229,8 @@ def run_closed_loop(
     decision: GateDecision = decide_gate(metrics, thresholds, baseline)
     event_log.emit("gate.decided", {"outcome": decision.outcome})
     reasons = [reason.message for reason in decision.reasons]
-    owners = owners_for_failures(reasons) if not decision.is_passed else []
+    owner_assignments = owners_for_reasons(decision.reasons)
+    owners = [assignment.owner for assignment in owner_assignments]
     identifiers, hashes, metadata, configuration = _manifest_context(
         corpus_hash=expected_fp,
         golden_path=golden_path,
@@ -225,6 +238,7 @@ def run_closed_loop(
         baseline_path=baseline_path,
         index_hash=metrics.get("fingerprint_active"),
         mutable_version=mutable_version,
+        thresholds=thresholds,
     )
     manifest = RunManifest(
         run_id=run_id,
@@ -249,11 +263,13 @@ def run_closed_loop(
         "decision": decision.to_dict(),
         "manifest": manifest_payload,
         "drift_detected": drift_detected,
+        "drift_classification": drift_classification,
         "reingested": reingested,
         "fingerprint_active": metrics.get("fingerprint_active"),
         "fingerprint_expected": metrics.get("fingerprint_expected"),
         "reasons": reasons,
         "owners": owners,
+        "owner_assignments": [assignment.to_dict() for assignment in owner_assignments],
         "online_n": metrics.get("online_n", 0),
         "metrics": {
             k: metrics.get(k)
@@ -277,6 +293,8 @@ def run_closed_loop(
 
     if not decision.is_passed:
         emit_alert(
+            decision_reasons=decision.reasons,
+            owner_assignments=owner_assignments,
             reasons=reasons,
             owners=owners,
             metrics=metrics,
@@ -289,6 +307,7 @@ def run_closed_loop(
     return {
         "drift_detected": drift_detected,
         "reingested": reingested,
+        "drift_classification": drift_classification,
         "decision": decision.to_dict(),
         "manifest": manifest_payload,
         # Compatibility fields retained for existing callers and CLI expectations.
@@ -296,6 +315,7 @@ def run_closed_loop(
         "exit_code": decision.exit_code,
         "reasons": reasons,
         "owners": owners,
+        "owner_assignments": [assignment.to_dict() for assignment in owner_assignments],
         "status_path": str(status_file),
     }
 

@@ -88,4 +88,7 @@ def test_decide_gate_returns_structured_reasons() -> None:
 
     assert decision.outcome == "fail"
     assert decision.reasons[0].code == "floor_not_met"
-    assert decision.reasons[0].evidence[0].subject == "recall@5"
+    evidence = decision.reasons[0].evidence[0]
+    assert evidence.subject == "recall@5"
+    assert evidence.observed == 0.1
+    assert evidence.expected == 0.5

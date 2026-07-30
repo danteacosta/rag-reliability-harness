@@ -7,9 +7,6 @@ from typing import Any, Literal, Mapping
 
 
 DecisionOutcome = Literal["pass", "fail"]
-REQUIRED_PROVENANCE = frozenset(
-    {"git", "corpus", "golden", "config", "model", "index", "baseline", "thresholds"}
-)
 
 
 @dataclass(frozen=True)
@@ -50,6 +47,14 @@ class GateDecision:
     outcome: DecisionOutcome
     reasons: tuple[DecisionReason, ...] = ()
 
+    def __post_init__(self) -> None:
+        if self.outcome not in ("pass", "fail"):
+            raise ValueError("outcome must be 'pass' or 'fail'")
+        if self.outcome == "pass" and self.reasons:
+            raise ValueError("a passed decision cannot include reasons")
+        if self.outcome == "fail" and not self.reasons:
+            raise ValueError("a failed decision requires at least one reason")
+
     @classmethod
     def passed(cls) -> "GateDecision":
         return cls(outcome="pass")
@@ -77,22 +82,24 @@ class GateDecision:
 
 @dataclass(frozen=True)
 class RunManifest:
-    """Complete, JSON-serializable identity and provenance for one evaluated run."""
+    """Complete, domain-neutral identity and provenance for one evaluated run."""
 
     run_id: str
     started_at: str
     decision: GateDecision
-    provenance: Mapping[str, Mapping[str, Any]]
+    identifiers: Mapping[str, str]
+    hashes: Mapping[str, str]
     schema_version: str = "protocol_next/v1"
     completed_at: str | None = None
     artifacts: Mapping[str, str] = field(default_factory=dict)
+    metadata: Mapping[str, Any] = field(default_factory=dict)
+    configuration: Mapping[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
-        missing = REQUIRED_PROVENANCE.difference(self.provenance)
-        if missing:
-            raise ValueError(
-                "missing required provenance: " + ", ".join(sorted(missing))
-            )
+        if not isinstance(self.run_id, str) or not self.run_id.strip():
+            raise ValueError("run_id must be a non-empty string")
+        _validate_named_values("identifiers", self.identifiers)
+        _validate_named_values("hashes", self.hashes)
 
     def to_dict(self) -> dict[str, Any]:
         payload: dict[str, Any] = {
@@ -100,8 +107,11 @@ class RunManifest:
             "run_id": self.run_id,
             "started_at": self.started_at,
             "decision": self.decision.to_dict(),
-            "provenance": {name: dict(value) for name, value in self.provenance.items()},
+            "identifiers": dict(self.identifiers),
+            "hashes": dict(self.hashes),
             "artifacts": dict(self.artifacts),
+            "metadata": dict(self.metadata),
+            "configuration": dict(self.configuration),
         }
         if self.completed_at is not None:
             payload["completed_at"] = self.completed_at
@@ -110,3 +120,12 @@ class RunManifest:
 
 def _without_none(values: dict[str, Any]) -> dict[str, Any]:
     return {key: value for key, value in values.items() if value is not None}
+
+
+def _validate_named_values(name: str, values: Mapping[str, str]) -> None:
+    if not values:
+        raise ValueError(f"{name} must contain at least one entry")
+    if any(not isinstance(key, str) or not key.strip() for key in values):
+        raise ValueError(f"{name} keys must be non-empty strings")
+    if any(not isinstance(value, str) or not value.strip() for value in values.values()):
+        raise ValueError(f"{name} values must be non-empty strings")

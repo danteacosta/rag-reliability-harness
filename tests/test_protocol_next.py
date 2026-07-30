@@ -31,33 +31,69 @@ def test_run_manifest_captures_complete_neutral_provenance() -> None:
         run_id="run-123",
         started_at="2026-07-30T00:00:00+00:00",
         decision=GateDecision.passed(),
-        provenance={
-            "git": {"commit": "abc123"},
-            "corpus": {"hash": "corpus-hash"},
-            "golden": {"hash": "golden-hash"},
-            "config": {"hash": "config-hash"},
-            "model": {"name": "hash-embedder"},
-            "index": {"hash": "index-hash"},
-            "baseline": {"hash": "baseline-hash"},
-            "thresholds": {"hash": "thresholds-hash"},
+        identifiers={"git_commit": "abc123", "model": "hash-embedder"},
+        hashes={
+            "corpus": "corpus-hash",
+            "golden": "golden-hash",
+            "config": "config-hash",
+            "index": "index-hash",
+            "baseline": "baseline-hash",
+            "thresholds": "thresholds-hash",
         },
+        metadata={"index_backend": "memory"},
+        configuration={"retrieval_k": 5},
     )
 
     payload = manifest.to_dict()
 
     assert payload["schema_version"] == "protocol_next/v1"
     assert payload["decision"]["outcome"] == "pass"
-    assert set(payload["provenance"]) == {
-        "git", "corpus", "golden", "config", "model", "index", "baseline", "thresholds"
-    }
+    assert payload["identifiers"]["git_commit"] == "abc123"
+    assert payload["hashes"]["corpus"] == "corpus-hash"
+    assert payload["metadata"] == {"index_backend": "memory"}
+    assert payload["configuration"] == {"retrieval_k": 5}
     assert "recall@5" not in payload
 
 
-def test_run_manifest_rejects_incomplete_provenance() -> None:
-    with pytest.raises(ValueError, match="missing required provenance"):
+def test_run_manifest_rejects_empty_required_identifier_or_hash() -> None:
+    with pytest.raises(ValueError, match="run_id"):
+        RunManifest(
+            run_id="",
+            started_at="2026-07-30T00:00:00+00:00",
+            decision=GateDecision.passed(),
+            identifiers={},
+            hashes={"input": "hash"},
+        )
+
+    with pytest.raises(ValueError, match="identifiers"):
         RunManifest(
             run_id="run-123",
             started_at="2026-07-30T00:00:00+00:00",
             decision=GateDecision.passed(),
-            provenance={"git": {"commit": "abc123"}},
+            identifiers={},
+            hashes={"input": "hash"},
         )
+
+    with pytest.raises(ValueError, match="hashes"):
+        RunManifest(
+            run_id="run-123",
+            started_at="2026-07-30T00:00:00+00:00",
+            decision=GateDecision.passed(),
+            identifiers={"build": "build-123"},
+            hashes={"input": ""},
+        )
+
+
+@pytest.mark.parametrize(
+    ("outcome", "reasons", "message"),
+    [
+        ("pass", (DecisionReason("unexpected", "unexpected"),), "passed"),
+        ("fail", (), "failed"),
+        ("unknown", (), "outcome"),
+    ],
+)
+def test_gate_decision_rejects_invalid_states(
+    outcome: str, reasons: tuple[DecisionReason, ...], message: str
+) -> None:
+    with pytest.raises(ValueError, match=message):
+        GateDecision(outcome=outcome, reasons=reasons)  # type: ignore[arg-type]

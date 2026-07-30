@@ -114,7 +114,7 @@ def _git_commit() -> str | None:
     return completed.stdout.strip() or None
 
 
-def _manifest_provenance(
+def _manifest_context(
     *,
     corpus_hash: str,
     golden_path: Path | str,
@@ -122,22 +122,30 @@ def _manifest_provenance(
     baseline_path: Path | str,
     index_hash: str | None,
     mutable_version: str,
-) -> dict[str, dict[str, Any]]:
+) -> tuple[dict[str, str], dict[str, str], dict[str, Any], dict[str, Any]]:
     config = {"mutable_version": mutable_version, "retrieval_k": DEFAULT_K}
     config_hash = hashlib.sha256(
         json.dumps(config, sort_keys=True, separators=(",", ":")).encode("utf-8")
     ).hexdigest()
     git_commit = _git_commit()
-    return {
-        "git": {"commit": git_commit or "unavailable"},
-        "corpus": {"hash": corpus_hash},
-        "golden": {"hash": _file_hash(golden_path)},
-        "config": {"hash": config_hash, **config},
-        "model": {"name": "HashEmbedder", "dimension": 256, "ngram_range": [3, 5]},
-        "index": {"hash": index_hash, "mutable_version": mutable_version},
-        "baseline": {"hash": _file_hash(baseline_path)},
-        "thresholds": {"hash": _file_hash(thresholds_path)},
+    identifiers = {
+        "git_commit": git_commit or "unavailable",
+        "model": "HashEmbedder",
+        "index": "InMemoryVectorStore",
     }
+    hashes = {
+        "corpus": corpus_hash,
+        "golden": _file_hash(golden_path),
+        "config": config_hash,
+        "index": index_hash or "unavailable",
+        "baseline": _file_hash(baseline_path),
+        "thresholds": _file_hash(thresholds_path),
+    }
+    metadata = {
+        "model": {"dimension": 256, "ngram_range": [3, 5]},
+        "index": {"mutable_version": mutable_version},
+    }
+    return identifiers, hashes, metadata, config
 
 
 def run_closed_loop(
@@ -199,19 +207,23 @@ def run_closed_loop(
     decision: GateDecision = decide_gate(metrics, thresholds, baseline)
     reasons = [reason.message for reason in decision.reasons]
     owners = owners_for_failures(reasons) if not decision.is_passed else []
+    identifiers, hashes, metadata, configuration = _manifest_context(
+        corpus_hash=expected_fp,
+        golden_path=golden_path,
+        thresholds_path=thresholds_path,
+        baseline_path=baseline_path,
+        index_hash=metrics.get("fingerprint_active"),
+        mutable_version=mutable_version,
+    )
     manifest = RunManifest(
         run_id=run_id,
         started_at=started_at,
         completed_at=datetime.now(timezone.utc).isoformat(),
         decision=decision,
-        provenance=_manifest_provenance(
-            corpus_hash=expected_fp,
-            golden_path=golden_path,
-            thresholds_path=thresholds_path,
-            baseline_path=baseline_path,
-            index_hash=metrics.get("fingerprint_active"),
-            mutable_version=mutable_version,
-        ),
+        identifiers=identifiers,
+        hashes=hashes,
+        metadata=metadata,
+        configuration=configuration,
         artifacts={
             "metrics": str(Path(metrics_path)),
             "status": str(Path(status_path)),
@@ -228,6 +240,7 @@ def run_closed_loop(
         "reingested": reingested,
         "fingerprint_active": metrics.get("fingerprint_active"),
         "fingerprint_expected": metrics.get("fingerprint_expected"),
+        "reasons": reasons,
         "owners": owners,
         "online_n": metrics.get("online_n", 0),
         "metrics": {
@@ -267,6 +280,7 @@ def run_closed_loop(
         # Compatibility fields retained for existing callers and CLI expectations.
         "gate_ok": decision.is_passed,
         "exit_code": decision.exit_code,
+        "reasons": reasons,
         "owners": owners,
         "status_path": str(status_file),
     }
@@ -306,8 +320,8 @@ def main(argv: list[str] | None = None) -> int:
         webhook_url=args.webhook_url,
         force_reingest=args.force_reingest,
     )
-    print(json.dumps(result["manifest"], indent=2))
-    return int(result["decision"]["outcome"] != "pass")
+    print(json.dumps(result, indent=2))
+    return int(result["exit_code"])
 
 
 if __name__ == "__main__":

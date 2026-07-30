@@ -79,6 +79,20 @@ class GateDecision:
             "reasons": [reason.to_dict() for reason in self.reasons],
         }
 
+    @classmethod
+    def from_dict(cls, value: Mapping[str, Any]) -> "GateDecision":
+        reasons = tuple(
+            DecisionReason(
+                code=str(reason["code"]),
+                message=str(reason["message"]),
+                evidence=tuple(
+                    Evidence(**dict(evidence)) for evidence in reason.get("evidence", [])
+                ),
+            )
+            for reason in value.get("reasons", [])
+        )
+        return cls(outcome=str(value["outcome"]), reasons=reasons)
+
 
 @dataclass(frozen=True)
 class RunManifest:
@@ -116,6 +130,21 @@ class RunManifest:
         if self.completed_at is not None:
             payload["completed_at"] = self.completed_at
         return payload
+
+    @classmethod
+    def from_dict(cls, value: Mapping[str, Any]) -> "RunManifest":
+        return cls(
+            run_id=str(value["run_id"]),
+            started_at=str(value["started_at"]),
+            completed_at=value.get("completed_at"),
+            decision=GateDecision.from_dict(value["decision"]),
+            identifiers=dict(value["identifiers"]),
+            hashes=dict(value["hashes"]),
+            schema_version=str(value.get("schema_version", "protocol_next/v1")),
+            artifacts=dict(value.get("artifacts") or {}),
+            metadata=dict(value.get("metadata") or {}),
+            configuration=dict(value.get("configuration") or {}),
+        )
 
 
 def _without_none(values: dict[str, Any]) -> dict[str, Any]:

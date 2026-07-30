@@ -19,7 +19,6 @@ from eval.runner import (
     DEFAULT_INDEX_DIR,
     DEFAULT_MUTABLE_VERSION,
     DEFAULT_OUTPUT,
-    _document_to_hit,
     compute_expected_fingerprint,
     run_eval,
 )
@@ -33,13 +32,14 @@ from gates.run import (
 from ingest.pipeline import ingest_corpus, load_fingerprint, load_index
 from loop.alert import emit_alert
 from loop.ownership import owners_for_failures
-from retrieval.generate import generate_answer
 from retrieval.retriever import DEFAULT_K, HarnessRetriever
-from protocol_next import GateDecision, RunManifest
+from protocol_next import EventLog, GateDecision, RunManifest
+from retrieval.adapters import ExtractiveGeneratorAdapter, HarnessRetrievalAdapter
 
 DEFAULT_ONLINE = Path("data/online/traffic_sample.jsonl")
 DEFAULT_ALERT = Path("loop/last_alert.json")
 DEFAULT_STATUS = Path("loop/last_status.json")
+DEFAULT_EVENTS = Path("loop/last_events.jsonl")
 
 
 def _load_online_queries(path: Path | str) -> list[dict[str, str]]:
@@ -64,14 +64,14 @@ def _replay_online_traffic(
     if not queries:
         return {"online_n": 0, "online_latency_p95_ms": 0.0, "online_refusal_rate": 0.0}
 
-    retriever = HarnessRetriever(store=store, k=k)
+    retriever = HarnessRetrievalAdapter(HarnessRetriever(store=store, k=k))
+    generator = ExtractiveGeneratorAdapter()
     latencies: list[float] = []
     refusals = 0
     for row in queries:
         t0 = time.perf_counter()
-        docs = retriever.invoke(row["question"])
-        hits = [_document_to_hit(doc) for doc in docs]
-        answer = generate_answer(row["question"], hits)
+        hits = retriever.retrieve(row["question"])
+        answer = generator.generate(row["question"], hits)
         latencies.append((time.perf_counter() - t0) * 1000.0)
         if answer == "INSUFFICIENT_CONTEXT":
             refusals += 1
@@ -144,6 +144,10 @@ def _manifest_context(
     metadata = {
         "model": {"dimension": 256, "ngram_range": [3, 5]},
         "index": {"mutable_version": mutable_version},
+        "threshold_provenance": {
+            "path": str(Path(thresholds_path)),
+            "hash": hashes["thresholds"],
+        },
     }
     return identifiers, hashes, metadata, config
 
@@ -159,6 +163,7 @@ def run_closed_loop(
     metrics_path: Path | str = DEFAULT_OUTPUT,
     alert_path: Path | str = DEFAULT_ALERT,
     status_path: Path | str = DEFAULT_STATUS,
+    events_path: Path | str = DEFAULT_EVENTS,
     mutable_version: str = DEFAULT_MUTABLE_VERSION,
     webhook_url: str | None = None,
     force_reingest: bool = False,
@@ -166,6 +171,8 @@ def run_closed_loop(
     """Run detect → reingest → eval (+ online sample) → gate → alert."""
     started_at = datetime.now(timezone.utc).isoformat()
     run_id = str(uuid.uuid4())
+    event_log = EventLog(events_path, run_id=run_id)
+    event_log.emit("run.started", {"component": "closed_loop"})
     corpus_root = Path(corpus_root)
     index_dir = Path(index_dir)
 
@@ -175,6 +182,7 @@ def run_closed_loop(
     index_exists = (index_dir / "fingerprint.json").is_file()
     active_fp = load_fingerprint(index_dir) if index_exists else None
     drift_detected = (active_fp is None) or (active_fp != expected_fp)
+    event_log.emit("input.changed", {"drift_detected": drift_detected})
 
     reingested = False
     if force_reingest or drift_detected:
@@ -184,6 +192,7 @@ def run_closed_loop(
             mutable_version=mutable_version,
         )
         reingested = True
+        event_log.emit("work.completed", {"operation": "reingest"})
 
     metrics = run_eval(
         golden_path=golden_path,
@@ -196,6 +205,7 @@ def run_closed_loop(
     store, _ = load_index(index_dir)
     online_stats = _replay_online_traffic(store, _load_online_queries(online_path))
     metrics.update(online_stats)
+    event_log.emit("work.completed", {"operation": "evaluation"})
 
     # Persist enriched metrics for gate + status.
     Path(metrics_path).write_text(
@@ -205,6 +215,7 @@ def run_closed_loop(
     thresholds = load_thresholds(thresholds_path)
     baseline = load_baseline(baseline_path)
     decision: GateDecision = decide_gate(metrics, thresholds, baseline)
+    event_log.emit("gate.decided", {"outcome": decision.outcome})
     reasons = [reason.message for reason in decision.reasons]
     owners = owners_for_failures(reasons) if not decision.is_passed else []
     identifiers, hashes, metadata, configuration = _manifest_context(
@@ -228,6 +239,7 @@ def run_closed_loop(
             "metrics": str(Path(metrics_path)),
             "status": str(Path(status_path)),
             "alert": str(Path(alert_path)),
+            "events": str(Path(events_path)),
         },
     )
     manifest_payload = manifest.to_dict()
@@ -272,6 +284,8 @@ def run_closed_loop(
             webhook_url=webhook_url,
         )
 
+    event_log.emit("run.completed", {"outcome": decision.outcome})
+
     return {
         "drift_detected": drift_detected,
         "reingested": reingested,
@@ -297,6 +311,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--metrics-out", type=Path, default=DEFAULT_OUTPUT)
     parser.add_argument("--alert-out", type=Path, default=DEFAULT_ALERT)
     parser.add_argument("--status-out", type=Path, default=DEFAULT_STATUS)
+    parser.add_argument("--events-out", type=Path, default=DEFAULT_EVENTS)
     parser.add_argument("--mutable-version", default=DEFAULT_MUTABLE_VERSION)
     parser.add_argument("--force-reingest", action="store_true")
     parser.add_argument(
@@ -316,6 +331,7 @@ def main(argv: list[str] | None = None) -> int:
         metrics_path=args.metrics_out,
         alert_path=args.alert_out,
         status_path=args.status_out,
+        events_path=args.events_out,
         mutable_version=args.mutable_version,
         webhook_url=args.webhook_url,
         force_reingest=args.force_reingest,

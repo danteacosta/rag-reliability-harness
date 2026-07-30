@@ -58,6 +58,7 @@ def test_at_loop1_corpus_drift_triggers_reingest_and_healthy_gate(tmp_path: Path
     assert result["manifest"]["hashes"]["index"]
     assert result["manifest"]["hashes"]["baseline"]
     assert result["manifest"]["hashes"]["thresholds"]
+    assert result["manifest"]["metadata"]["threshold_provenance"]["hash"]
     assert load_fingerprint(index_dir) != stale_fp
     status = json.loads(status_path.read_text(encoding="utf-8"))
     assert status["healthy"] is True

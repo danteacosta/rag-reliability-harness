@@ -9,6 +9,7 @@ eval/last_run.json
 eval/sim_report.json
 loop/last_alert.json
 loop/last_status.json
+loop/last_events.jsonl
 *.egg-info/
 dist/
 build/

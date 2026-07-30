@@ -3,9 +3,13 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
+import subprocess
 import time
+import uuid
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -22,7 +26,7 @@ from eval.runner import (
 from gates.run import (
     DEFAULT_BASELINE,
     DEFAULT_THRESHOLDS,
-    check_gate,
+    decide_gate,
     load_baseline,
     load_thresholds,
 )
@@ -31,6 +35,7 @@ from loop.alert import emit_alert
 from loop.ownership import owners_for_failures
 from retrieval.generate import generate_answer
 from retrieval.retriever import DEFAULT_K, HarnessRetriever
+from protocol_next import GateDecision, RunManifest
 
 DEFAULT_ONLINE = Path("data/online/traffic_sample.jsonl")
 DEFAULT_ALERT = Path("loop/last_alert.json")
@@ -92,6 +97,49 @@ def _percentile(sorted_values: list[float], pct: float) -> float:
     return float(sorted_values[lo] * (1 - frac) + sorted_values[hi] * frac)
 
 
+def _file_hash(path: Path | str) -> str:
+    return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+
+
+def _git_commit() -> str | None:
+    try:
+        completed = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    except (OSError, subprocess.CalledProcessError):
+        return None
+    return completed.stdout.strip() or None
+
+
+def _manifest_provenance(
+    *,
+    corpus_hash: str,
+    golden_path: Path | str,
+    thresholds_path: Path | str,
+    baseline_path: Path | str,
+    index_hash: str | None,
+    mutable_version: str,
+) -> dict[str, dict[str, Any]]:
+    config = {"mutable_version": mutable_version, "retrieval_k": DEFAULT_K}
+    config_hash = hashlib.sha256(
+        json.dumps(config, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()
+    git_commit = _git_commit()
+    return {
+        "git": {"commit": git_commit or "unavailable"},
+        "corpus": {"hash": corpus_hash},
+        "golden": {"hash": _file_hash(golden_path)},
+        "config": {"hash": config_hash, **config},
+        "model": {"name": "HashEmbedder", "dimension": 256, "ngram_range": [3, 5]},
+        "index": {"hash": index_hash, "mutable_version": mutable_version},
+        "baseline": {"hash": _file_hash(baseline_path)},
+        "thresholds": {"hash": _file_hash(thresholds_path)},
+    }
+
+
 def run_closed_loop(
     *,
     corpus_root: Path | str = DEFAULT_CORPUS_ROOT,
@@ -108,6 +156,8 @@ def run_closed_loop(
     force_reingest: bool = False,
 ) -> dict[str, Any]:
     """Run detect → reingest → eval (+ online sample) → gate → alert."""
+    started_at = datetime.now(timezone.utc).isoformat()
+    run_id = str(uuid.uuid4())
     corpus_root = Path(corpus_root)
     index_dir = Path(index_dir)
 
@@ -146,16 +196,38 @@ def run_closed_loop(
 
     thresholds = load_thresholds(thresholds_path)
     baseline = load_baseline(baseline_path)
-    gate_ok, reasons = check_gate(metrics, thresholds, baseline)
-    owners = owners_for_failures(reasons) if not gate_ok else []
+    decision: GateDecision = decide_gate(metrics, thresholds, baseline)
+    reasons = [reason.message for reason in decision.reasons]
+    owners = owners_for_failures(reasons) if not decision.is_passed else []
+    manifest = RunManifest(
+        run_id=run_id,
+        started_at=started_at,
+        completed_at=datetime.now(timezone.utc).isoformat(),
+        decision=decision,
+        provenance=_manifest_provenance(
+            corpus_hash=expected_fp,
+            golden_path=golden_path,
+            thresholds_path=thresholds_path,
+            baseline_path=baseline_path,
+            index_hash=metrics.get("fingerprint_active"),
+            mutable_version=mutable_version,
+        ),
+        artifacts={
+            "metrics": str(Path(metrics_path)),
+            "status": str(Path(status_path)),
+            "alert": str(Path(alert_path)),
+        },
+    )
+    manifest_payload = manifest.to_dict()
 
     status: dict[str, Any] = {
-        "healthy": gate_ok,
+        "healthy": decision.is_passed,
+        "decision": decision.to_dict(),
+        "manifest": manifest_payload,
         "drift_detected": drift_detected,
         "reingested": reingested,
         "fingerprint_active": metrics.get("fingerprint_active"),
         "fingerprint_expected": metrics.get("fingerprint_expected"),
-        "reasons": reasons,
         "owners": owners,
         "online_n": metrics.get("online_n", 0),
         "metrics": {
@@ -178,7 +250,7 @@ def run_closed_loop(
     status_file.parent.mkdir(parents=True, exist_ok=True)
     status_file.write_text(json.dumps(status, indent=2, ensure_ascii=True) + "\n", encoding="utf-8")
 
-    if not gate_ok:
+    if not decision.is_passed:
         emit_alert(
             reasons=reasons,
             owners=owners,
@@ -190,9 +262,11 @@ def run_closed_loop(
     return {
         "drift_detected": drift_detected,
         "reingested": reingested,
-        "gate_ok": gate_ok,
-        "exit_code": 0 if gate_ok else 1,
-        "reasons": reasons,
+        "decision": decision.to_dict(),
+        "manifest": manifest_payload,
+        # Compatibility fields retained for existing callers and CLI expectations.
+        "gate_ok": decision.is_passed,
+        "exit_code": decision.exit_code,
         "owners": owners,
         "status_path": str(status_file),
     }
@@ -232,8 +306,8 @@ def main(argv: list[str] | None = None) -> int:
         webhook_url=args.webhook_url,
         force_reingest=args.force_reingest,
     )
-    print(json.dumps({k: result[k] for k in ("drift_detected", "reingested", "gate_ok", "exit_code", "owners", "reasons")}, indent=2))
-    return int(result["exit_code"])
+    print(json.dumps(result["manifest"], indent=2))
+    return int(result["decision"]["outcome"] != "pass")
 
 
 if __name__ == "__main__":

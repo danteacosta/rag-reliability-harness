@@ -6,6 +6,8 @@ from typing import Any
 
 import yaml
 
+from protocol_next import DecisionReason, Evidence, GateDecision
+
 DEFAULT_THRESHOLDS = Path("eval/thresholds.yaml")
 DEFAULT_BASELINE = Path("eval/baselines/ci.json")
 DEFAULT_METRICS = Path("eval/last_run.json")
@@ -49,39 +51,85 @@ def check_gate(
     thresholds: dict[str, Any],
     baseline: dict[str, Any],
 ) -> tuple[bool, list[str]]:
-    """Return (passed, failure_reasons)."""
-    failures: list[str] = []
+    """Compatibility wrapper returning ``(passed, human-readable failures)``."""
+    decision = decide_gate(metrics, thresholds, baseline)
+    return decision.is_passed, [reason.message for reason in decision.reasons]
+
+
+def decide_gate(
+    metrics: dict[str, Any],
+    thresholds: dict[str, Any],
+    baseline: dict[str, Any],
+) -> GateDecision:
+    """Evaluate a gate using stable reason codes and structured evidence."""
+    failures: list[DecisionReason] = []
 
     if thresholds.get("require_drift_ok", False) and metrics.get("drift_ok") is not True:
-        failures.append("drift_ok required but metrics['drift_ok'] is not True")
+        failures.append(
+            DecisionReason(
+                code="required_condition_not_met",
+                message="drift_ok required but metrics['drift_ok'] is not True",
+                evidence=(Evidence("condition", "drift_ok", metrics.get("drift_ok"), True, "=="),),
+            )
+        )
 
     floors = thresholds.get("floors") or {}
     for key, floor in floors.items():
         value = metrics.get(key)
         if value is None:
-            failures.append(f"floor {key}: missing metric")
+            failures.append(
+                DecisionReason(
+                    code="metric_missing",
+                    message=f"floor {key}: missing metric",
+                    evidence=(Evidence("metric", key, source="metrics"),),
+                )
+            )
             continue
         if float(value) < float(floor):
-            failures.append(f"floor {key}: {float(value):.4f} < {float(floor):.4f}")
+            failures.append(
+                DecisionReason(
+                    code="floor_not_met",
+                    message=f"floor {key}: {float(value):.4f} < {float(floor):.4f}",
+                    evidence=(Evidence("metric", key, float(value), float(floor), ">=", "metrics"),),
+                )
+            )
 
     max_slip = thresholds.get("max_slip") or {}
     for key, slip_limit in max_slip.items():
         current = metrics.get(key)
         base = baseline.get(key)
         if current is None:
-            failures.append(f"slip {key}: missing current metric")
+            failures.append(
+                DecisionReason(
+                    code="metric_missing",
+                    message=f"slip {key}: missing current metric",
+                    evidence=(Evidence("metric", key, source="metrics"),),
+                )
+            )
             continue
         if base is None:
-            failures.append(f"slip {key}: missing baseline metric")
+            failures.append(
+                DecisionReason(
+                    code="baseline_metric_missing",
+                    message=f"slip {key}: missing baseline metric",
+                    evidence=(Evidence("metric", key, source="baseline"),),
+                )
+            )
             continue
         slip = float(base) - float(current)
         if slip > float(slip_limit):
             failures.append(
-                f"slip {key}: {slip:.4f} > max_slip {float(slip_limit):.4f} "
-                f"(baseline={float(base):.4f}, current={float(current):.4f})"
+                DecisionReason(
+                    code="baseline_slip_exceeded",
+                    message=(
+                        f"slip {key}: {slip:.4f} > max_slip {float(slip_limit):.4f} "
+                        f"(baseline={float(base):.4f}, current={float(current):.4f})"
+                    ),
+                    evidence=(Evidence("regression", key, slip, float(slip_limit), "<=", "baseline"),),
+                )
             )
 
-    return (len(failures) == 0, failures)
+    return GateDecision.passed() if not failures else GateDecision.failed(*failures)
 
 
 def check_gate_blind(metrics: dict[str, Any]) -> tuple[bool, list[str]]:

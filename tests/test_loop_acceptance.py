@@ -49,9 +49,19 @@ def test_at_loop1_corpus_drift_triggers_reingest_and_healthy_gate(tmp_path: Path
     assert result["reingested"] is True
     assert result["gate_ok"] is True
     assert result["exit_code"] == 0
+    assert result["decision"]["outcome"] == "pass"
+    assert result["manifest"]["provenance"]["corpus"]["hash"]
+    assert result["manifest"]["provenance"]["golden"]["hash"]
+    assert result["manifest"]["provenance"]["config"]["hash"]
+    assert result["manifest"]["provenance"]["model"]
+    assert result["manifest"]["provenance"]["index"]
+    assert result["manifest"]["provenance"]["baseline"]["hash"]
+    assert result["manifest"]["provenance"]["thresholds"]["hash"]
     assert load_fingerprint(index_dir) != stale_fp
     status = json.loads(status_path.read_text(encoding="utf-8"))
     assert status["healthy"] is True
+    assert status["decision"]["outcome"] == "pass"
+    assert "reasons" not in status
     assert "latency_p95_ms" in status["metrics"]
 
 
@@ -81,6 +91,8 @@ def test_at_loop2_gate_failure_emits_alert_with_ownership(tmp_path: Path) -> Non
 
     assert result["gate_ok"] is False
     assert result["exit_code"] == 1
+    assert result["decision"]["outcome"] == "fail"
+    assert result["decision"]["reasons"][0]["code"] == "floor_not_met"
     alert = load_last_alert(alert_path)
     assert alert is not None
     assert alert["reasons"]

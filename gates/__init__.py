@@ -1,6 +1,7 @@
 from gates.run import (
     check_gate,
     check_gate_blind,
+    decide_gate,
     load_baseline,
     load_metrics,
     load_thresholds,
@@ -9,6 +10,7 @@ from gates.run import (
 __all__ = [
     "check_gate",
     "check_gate_blind",
+    "decide_gate",
     "load_baseline",
     "load_metrics",
     "load_thresholds",

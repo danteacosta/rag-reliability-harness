@@ -53,7 +53,7 @@ def check_gate(
 ) -> tuple[bool, list[str]]:
     """Compatibility wrapper returning ``(passed, human-readable failures)``."""
     decision = decide_gate(metrics, thresholds, baseline)
-    return decision.is_passed, [reason.message for reason in decision.reasons]
+    return decision.outcome == "pass", [reason.message for reason in decision.reasons]
 
 
 def decide_gate(

@@ -1,8 +1,8 @@
-"""Stable, domain-neutral contracts for evaluated runs and gate decisions."""
+"""RAG compatibility namespace; neutral contracts live in agent-reliability-protocol."""
 
-from protocol_next.contracts import DecisionReason, Evidence, GateDecision, RunManifest
+from agent_reliability_protocol import DecisionReason, Evidence, GateDecision, RunManifest
 from protocol_next.events import EventLog, LifecycleEvent, collect_lifecycle_events
-from protocol_next.interchange import check_contract, export_contract, redact_contract
+from agent_reliability_protocol import check_contract, export_contract, redact_contract
 from protocol_next.replay import replay_manifest
 
 __all__ = [

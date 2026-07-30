@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import agent_reliability_protocol
 from protocol_next import (
     GateDecision,
     LifecycleEvent,
@@ -30,11 +31,11 @@ def test_portable_fixtures_round_trip_against_neutral_contracts() -> None:
 
 
 def test_portable_json_schemas_are_parseable_and_versioned() -> None:
-    schemas = FIXTURES.parents[1] / "schemas"
+    schemas = Path(agent_reliability_protocol.__file__).parent / "schemas"
     for schema in schemas.glob("*.schema.json"):
         payload = json.loads(schema.read_text(encoding="utf-8"))
         assert payload["$schema"] == "https://json-schema.org/draft/2020-12/schema"
-        assert "protocol-next.dev/schemas/" in payload["$id"]
+        assert "agent-reliability-protocol.dev/schemas/" in payload["$id"]
 
 
 def test_contract_checker_accepts_v1_omitted_optional_fields() -> None:
@@ -47,7 +48,7 @@ def test_contract_checker_accepts_v1_omitted_optional_fields() -> None:
     }
 
     assert check_contract("manifest", legacy_manifest) == []
-    assert RunManifest.from_dict(legacy_manifest).to_dict()["schema_version"] == "protocol_next/v1"
+    assert RunManifest.from_dict(legacy_manifest).to_dict()["schema_version"] == "arp/v1"
 
 
 def test_exporter_redacts_secrets_without_mutating_source(tmp_path: Path) -> None:

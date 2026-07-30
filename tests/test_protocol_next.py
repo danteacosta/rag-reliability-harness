@@ -46,7 +46,7 @@ def test_run_manifest_captures_complete_neutral_provenance() -> None:
 
     payload = manifest.to_dict()
 
-    assert payload["schema_version"] == "protocol_next/v1"
+    assert payload["schema_version"] == "arp/v1"
     assert payload["decision"]["outcome"] == "pass"
     assert payload["identifiers"]["git_commit"] == "abc123"
     assert payload["hashes"]["corpus"] == "corpus-hash"

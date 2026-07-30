@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 from typing import Any, Mapping
 
-from protocol_next.contracts import RunManifest
+from agent_reliability_protocol import RunManifest
 from protocol_next.events import collect_lifecycle_events
 
 

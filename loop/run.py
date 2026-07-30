@@ -259,7 +259,7 @@ def run_closed_loop(
     manifest_payload = manifest.to_dict()
 
     status: dict[str, Any] = {
-        "healthy": decision.is_passed,
+        "healthy": decision.outcome == "pass",
         "decision": decision.to_dict(),
         "manifest": manifest_payload,
         "drift_detected": drift_detected,
@@ -291,7 +291,7 @@ def run_closed_loop(
     status_file.parent.mkdir(parents=True, exist_ok=True)
     status_file.write_text(json.dumps(status, indent=2, ensure_ascii=True) + "\n", encoding="utf-8")
 
-    if not decision.is_passed:
+    if decision.outcome != "pass":
         emit_alert(
             decision_reasons=decision.reasons,
             owner_assignments=owner_assignments,
@@ -311,7 +311,7 @@ def run_closed_loop(
         "decision": decision.to_dict(),
         "manifest": manifest_payload,
         # Compatibility fields retained for existing callers and CLI expectations.
-        "gate_ok": decision.is_passed,
+        "gate_ok": decision.outcome == "pass",
         "exit_code": decision.exit_code,
         "reasons": reasons,
         "owners": owners,

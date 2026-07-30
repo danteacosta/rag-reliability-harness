@@ -1,0 +1,23 @@
+{
+  "schema_version": "protocol_next/v1",
+  "run_id": "fixture-run-001",
+  "started_at": "2026-07-30T00:00:00+00:00",
+  "completed_at": "2026-07-30T00:00:01+00:00",
+  "decision": {
+    "outcome": "fail",
+    "reasons": [
+      {
+        "code": "threshold_not_met",
+        "message": "Measured value is below the configured threshold.",
+        "evidence": [
+          {"kind": "measurement", "subject": "quality", "observed": 0.7, "expected": 0.9, "comparator": ">="}
+        ]
+      }
+    ]
+  },
+  "identifiers": {"build": "fixture-build", "model": "fixture-model"},
+  "hashes": {"input": "fixture-input-hash", "configuration": "fixture-config-hash"},
+  "artifacts": {"events": "events.jsonl"},
+  "metadata": {"fixture": true},
+  "configuration": {"mode": "offline"}
+}

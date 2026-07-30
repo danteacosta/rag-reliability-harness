@@ -12,8 +12,9 @@ from eval.runner import run_eval
 from gates.run import check_gate, load_baseline
 from ingest.pipeline import ingest_corpus, load_fingerprint
 from loop.alert import load_last_alert
-from loop.ownership import owners_for_failures
-from loop.run import run_closed_loop
+from loop.ownership import owners_for_failures, owners_for_reasons
+from protocol_next import DecisionReason, Evidence
+from loop.run import classify_drift, run_closed_loop
 
 ROOT = Path(__file__).resolve().parents[1]
 CORPUS = ROOT / "data" / "corpus"
@@ -46,12 +47,29 @@ def test_at_loop1_corpus_drift_triggers_reingest_and_healthy_gate(tmp_path: Path
     )
 
     assert result["drift_detected"] is True
+    assert result["drift_classification"] == "corpus_index_mismatch"
     assert result["reingested"] is True
     assert result["gate_ok"] is True
     assert result["exit_code"] == 0
+    assert result["decision"]["outcome"] == "pass"
+    assert result["manifest"]["identifiers"]["git_commit"]
+    assert result["manifest"]["identifiers"]["model"]
+    assert result["manifest"]["hashes"]["corpus"]
+    assert result["manifest"]["hashes"]["golden"]
+    assert result["manifest"]["hashes"]["config"]
+    assert result["manifest"]["hashes"]["index"]
+    assert result["manifest"]["hashes"]["baseline"]
+    assert result["manifest"]["hashes"]["thresholds"]
+    assert result["manifest"]["metadata"]["threshold_provenance"]["hash"]
+    provenance = result["manifest"]["metadata"]["threshold_provenance"]
+    assert set(provenance).issuperset(
+        {"version", "baseline_dataset", "created", "sample", "method", "direction", "min_effect", "owner"}
+    )
     assert load_fingerprint(index_dir) != stale_fp
     status = json.loads(status_path.read_text(encoding="utf-8"))
     assert status["healthy"] is True
+    assert status["decision"]["outcome"] == "pass"
+    assert status["reasons"] == []
     assert "latency_p95_ms" in status["metrics"]
 
 
@@ -81,10 +99,16 @@ def test_at_loop2_gate_failure_emits_alert_with_ownership(tmp_path: Path) -> Non
 
     assert result["gate_ok"] is False
     assert result["exit_code"] == 1
+    assert result["decision"]["outcome"] == "fail"
+    assert result["decision"]["reasons"][0]["code"] == "floor_not_met"
+    assert result["reasons"]
+    assert result["owner_assignments"][0]["reason_codes"]
     alert = load_last_alert(alert_path)
     assert alert is not None
     assert alert["reasons"]
     assert alert["owners"]
+    assert alert["decision_reasons"][0]["evidence"][0]["observed"]
+    assert alert["owner_assignments"][0]["reason_codes"]
     assert "retrieval" in alert["owners"] or "generate" in alert["owners"] or "ingest" in alert["owners"]
 
 
@@ -127,6 +151,24 @@ def test_at_loop4_ownership_maps_failure_classes() -> None:
     assert "retrieval" in owners
     assert "generate" in owners
     assert "infra" in owners
+
+
+def test_at_loop4b_structured_reasons_assign_owners_without_message_parsing() -> None:
+    assignments = owners_for_reasons(
+        [
+            DecisionReason("floor_not_met", "irrelevant", (Evidence("metric", "mrr", 0.1, 0.55, ">="),)),
+            DecisionReason("required_condition_not_met", "irrelevant", (Evidence("condition", "drift_ok", False, True, "=="),)),
+        ]
+    )
+    by_owner = {assignment.owner: assignment.reason_codes for assignment in assignments}
+    assert by_owner["retrieval"] == ("floor_not_met",)
+    assert by_owner["ingest"] == ("required_condition_not_met",)
+
+
+def test_at_loop4c_drift_taxonomy_is_deterministic() -> None:
+    assert classify_drift(None, "expected") == "index_missing"
+    assert classify_drift("active", "expected") == "corpus_index_mismatch"
+    assert classify_drift("expected", "expected") == "none"
 
 
 def test_at_loop5_eval_reports_latency_percentiles(tmp_path: Path) -> None:

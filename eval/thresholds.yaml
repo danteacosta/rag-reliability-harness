@@ -1,6 +1,15 @@
 # Absolute floors + max allowed regression vs baseline.
 k: 5
 require_drift_ok: true   # happy-path CI must have fingerprint match
+provenance:
+  version: "1.0"
+  baseline_dataset: "eval/baselines/ci.json"
+  created: "2026-07-30"
+  sample: "data/golden/set.jsonl"
+  method: "offline fixture evaluation"
+  direction: "higher_is_better"
+  min_effect: 0.05
+  owner: "rag-reliability"
 floors:
   recall@5: 0.70
   precision@5: 0.20

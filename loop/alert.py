@@ -7,23 +7,33 @@ import urllib.error
 import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterable
+
+from loop.ownership import OwnerAssignment
+from protocol_next import DecisionReason
 
 
 def emit_alert(
     *,
-    reasons: list[str],
-    owners: list[str],
+    decision_reasons: Iterable[DecisionReason] = (),
+    owner_assignments: Iterable[OwnerAssignment] = (),
+    reasons: list[str] | None = None,
+    owners: list[str] | None = None,
     metrics: dict[str, Any],
     alert_path: Path | str,
     webhook_url: str | None = None,
 ) -> dict[str, Any]:
     """Write alert JSON; optionally POST to webhook (best-effort, never raises)."""
+    structured_reasons = list(decision_reasons)
+    structured_assignments = list(owner_assignments)
     payload: dict[str, Any] = {
         "ts": datetime.now(timezone.utc).isoformat(),
         "severity": "gate_failed",
-        "reasons": list(reasons),
-        "owners": list(owners),
+        # Legacy summaries are preserved for integrations that display strings.
+        "reasons": list(reasons) if reasons is not None else [reason.message for reason in structured_reasons],
+        "owners": list(owners) if owners is not None else [item.owner for item in structured_assignments],
+        "decision_reasons": [reason.to_dict() for reason in structured_reasons],
+        "owner_assignments": [item.to_dict() for item in structured_assignments],
         "metrics_summary": {
             k: metrics.get(k)
             for k in (

@@ -8,7 +8,7 @@ from typing import Any
 from ingest.fingerprint import content_hash, corpus_fingerprint
 from ingest.pipeline import load_fingerprint, load_index
 from rag_harness.types import GoldenItem, RetrievalHit
-from retrieval.generate import generate_answer
+from retrieval.adapters import ExtractiveGeneratorAdapter, HarnessRetrievalAdapter
 from retrieval.retriever import DEFAULT_K, HarnessRetriever
 
 from eval.metrics import (
@@ -68,7 +68,8 @@ def run_eval(
 ) -> dict[str, Any]:
     golden = load_golden(golden_path)
     store, _metadata = load_index(index_dir)
-    retriever = HarnessRetriever(store=store, k=k)
+    retriever = HarnessRetrievalAdapter(HarnessRetriever(store=store, k=k))
+    generator = ExtractiveGeneratorAdapter()
 
     per_item: list[dict[str, Any]] = []
     groundedness_scores: list[float] = []
@@ -76,10 +77,9 @@ def run_eval(
 
     for item in golden:
         t0 = time.perf_counter()
-        docs = retriever.invoke(item.question)
-        hits = [_document_to_hit(doc) for doc in docs]
+        hits = retriever.retrieve(item.question)
         retrieved_ids = [hit.chunk_id for hit in hits]
-        answer = generate_answer(item.question, hits)
+        answer = generator.generate(item.question, hits)
         latencies_ms.append((time.perf_counter() - t0) * 1000.0)
         contexts = [hit.text for hit in hits]
         g = groundedness(answer, contexts=contexts)

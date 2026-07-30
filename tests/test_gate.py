@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from gates.run import check_gate, check_gate_blind, load_baseline, load_thresholds
+from gates.run import check_gate, check_gate_blind, decide_gate, load_baseline, load_thresholds
 
 
 @pytest.fixture
@@ -77,3 +77,18 @@ def test_check_gate_blind_always_passes():
     ok, failures = check_gate_blind({"recall@5": 0.0, "drift_ok": False})
     assert ok is True
     assert failures == []
+
+
+def test_decide_gate_returns_structured_reasons() -> None:
+    decision = decide_gate(
+        {"recall@5": 0.1, "drift_ok": True},
+        {"floors": {"recall@5": 0.5}},
+        {},
+    )
+
+    assert decision.outcome == "fail"
+    assert decision.reasons[0].code == "floor_not_met"
+    evidence = decision.reasons[0].evidence[0]
+    assert evidence.subject == "recall@5"
+    assert evidence.observed == 0.1
+    assert evidence.expected == 0.5

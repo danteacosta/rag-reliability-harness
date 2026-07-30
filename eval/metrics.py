@@ -35,6 +35,24 @@ def mrr(retrieved: list[str], relevant: list[str]) -> float:
     return 0.0
 
 
+def ndcg_at_k(retrieved: list[str], relevant: list[str], *, k: int) -> float:
+    """Binary-relevance normalized discounted cumulative gain."""
+    if not relevant or k <= 0:
+        return 0.0
+    relevant_set = set(relevant)
+    dcg = sum((1.0 / __import__("math").log2(rank + 1)) for rank, item in enumerate(retrieved[:k], 1) if item in relevant_set)
+    ideal = sum(1.0 / __import__("math").log2(rank + 1) for rank in range(1, min(k, len(relevant_set)) + 1))
+    return dcg / ideal if ideal else 0.0
+
+
+def context_precision(retrieved: list[str], relevant: list[str], *, k: int) -> float:
+    return precision_at_k(retrieved, relevant, k=k)
+
+
+def context_recall(retrieved: list[str], relevant: list[str], *, k: int) -> float:
+    return recall_at_k(retrieved, relevant, k=k)
+
+
 def aggregate_retrieval_metrics(
     items: Iterable[dict[str, Any]],
     *,
@@ -74,6 +92,30 @@ def refusal_accuracy(items: Iterable[dict[str, Any]]) -> float:
         return 0.0
     correct = sum(1 for item in cohort if item.get("answer") == REFUSAL)
     return correct / len(cohort)
+
+
+def refusal_precision_recall(items: Iterable[dict[str, Any]]) -> dict[str, float]:
+    rows = list(items)
+    actual = [not list(item.get("relevant_chunk_ids") or []) for item in rows]
+    predicted = [item.get("answer") == REFUSAL for item in rows]
+    tp = sum(a and p for a, p in zip(actual, predicted))
+    precision = tp / sum(predicted) if any(predicted) else 0.0
+    recall = tp / sum(actual) if any(actual) else 0.0
+    return {"refusal_precision": precision, "refusal_recall": recall}
+
+
+def citation_correctness(items: Iterable[dict[str, Any]]) -> float:
+    rows = [item for item in items if list(item.get("citations") or [])]
+    if not rows:
+        return 1.0
+    return sum(set(item["citations"]).issubset(set(item.get("relevant_chunk_ids") or [])) for item in rows) / len(rows)
+
+
+def freshness(items: Iterable[dict[str, Any]]) -> float:
+    rows = list(items)
+    if not rows:
+        return 1.0
+    return sum(bool(item.get("fresh", True)) for item in rows) / len(rows)
 
 
 def groundedness(answer: str, *, contexts: list[str]) -> float:

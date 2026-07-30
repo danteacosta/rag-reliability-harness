@@ -6,6 +6,7 @@ import argparse
 import hashlib
 import json
 import os
+import shutil
 import subprocess
 import time
 import uuid
@@ -33,7 +34,8 @@ from ingest.pipeline import ingest_corpus, load_fingerprint, load_index
 from loop.alert import emit_alert
 from loop.ownership import owners_for_reasons
 from retrieval.retriever import DEFAULT_K, HarnessRetriever
-from protocol_next import EventLog, GateDecision, RunManifest
+from protocol_next import EventLog
+from rag_harness.reliability import GateDecision, RunManifest
 from retrieval.adapters import ExtractiveGeneratorAdapter, HarnessRetrievalAdapter
 
 DEFAULT_ONLINE = Path("data/online/traffic_sample.jsonl")
@@ -101,6 +103,27 @@ def _file_hash(path: Path | str) -> str:
     return hashlib.sha256(Path(path).read_bytes()).hexdigest()
 
 
+def _snapshot_replay_inputs(
+    run_dir: Path,
+    *, corpus_root: Path, golden_path: Path | str, online_path: Path | str,
+    thresholds_path: Path | str, baseline_path: Path | str,
+) -> dict[str, str]:
+    """Copy every deterministic input needed to replay a run without source paths."""
+    inputs = run_dir / "inputs"
+    corpus_copy = inputs / "corpus"
+    shutil.copytree(corpus_root, corpus_copy)
+    copies = {"corpus_root": str(corpus_copy.relative_to(run_dir))}
+    for key, source in {
+        "golden_path": golden_path, "online_path": online_path,
+        "thresholds_path": thresholds_path, "baseline_path": baseline_path,
+    }.items():
+        target = inputs / f"{key}{Path(source).suffix}"
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(source, target)
+        copies[key] = str(target.relative_to(run_dir))
+    return copies
+
+
 def _git_commit() -> str | None:
     try:
         completed = subprocess.run(
@@ -151,6 +174,12 @@ def _manifest_context(
             **dict(thresholds.get("provenance") or {}),
         },
     }
+    provenance = metadata["threshold_provenance"]
+    provenance.update({
+        "version": provenance.get("threshold_version"), "created": provenance.get("created_at"),
+        "sample": provenance.get("baseline_dataset"), "method": provenance.get("estimation_method"),
+        "direction": provenance.get("metric_direction"), "min_effect": provenance.get("minimum_effect"),
+    })
     return identifiers, hashes, metadata, config
 
 
@@ -175,6 +204,7 @@ def run_closed_loop(
     alert_path: Path | str = DEFAULT_ALERT,
     status_path: Path | str = DEFAULT_STATUS,
     events_path: Path | str = DEFAULT_EVENTS,
+    runs_root: Path | str | None = None,
     mutable_version: str = DEFAULT_MUTABLE_VERSION,
     webhook_url: str | None = None,
     force_reingest: bool = False,
@@ -182,6 +212,11 @@ def run_closed_loop(
     """Run detect → reingest → eval (+ online sample) → gate → alert."""
     started_at = datetime.now(timezone.utc).isoformat()
     run_id = str(uuid.uuid4())
+    if runs_root is not None:
+        run_dir = Path(runs_root) / run_id
+        metrics_path, alert_path, status_path, events_path = (
+            run_dir / "metrics.json", run_dir / "alert.json", run_dir / "status.json", run_dir / "events.jsonl",
+        )
     event_log = EventLog(events_path, run_id=run_id)
     event_log.emit("run.started", {"component": "closed_loop"})
     corpus_root = Path(corpus_root)
@@ -194,18 +229,21 @@ def run_closed_loop(
     active_fp = load_fingerprint(index_dir) if index_exists else None
     drift_classification = classify_drift(active_fp, expected_fp)
     drift_detected = drift_classification != "none"
-    event_log.emit("input.changed", {"drift_detected": drift_detected, "classification": drift_classification})
+    event_log.emit("corpus.fingerprint.computed", {"expected": expected_fp, "active": active_fp})
+    event_log.emit("drift.detected", {"drift_detected": drift_detected, "classification": drift_classification})
 
     reingested = False
     if force_reingest or drift_detected:
+        event_log.emit("ingest.started", {"mutable_version": mutable_version})
         ingest_corpus(
             corpus_root=corpus_root,
             index_dir=index_dir,
             mutable_version=mutable_version,
         )
         reingested = True
-        event_log.emit("work.completed", {"operation": "reingest"})
+        event_log.emit("ingest.completed", {"operation": "reingest"})
 
+    event_log.emit("evaluation.started", {})
     metrics = run_eval(
         golden_path=golden_path,
         index_dir=index_dir,
@@ -217,7 +255,8 @@ def run_closed_loop(
     store, _ = load_index(index_dir)
     online_stats = _replay_online_traffic(store, _load_online_queries(online_path))
     metrics.update(online_stats)
-    event_log.emit("work.completed", {"operation": "evaluation"})
+    event_log.emit("retrieval.completed", {"operation": "evaluation"})
+    event_log.emit("generation.completed", {"operation": "evaluation"})
 
     # Persist enriched metrics for gate + status.
     Path(metrics_path).write_text(
@@ -227,7 +266,7 @@ def run_closed_loop(
     thresholds = load_thresholds(thresholds_path)
     baseline = load_baseline(baseline_path)
     decision: GateDecision = decide_gate(metrics, thresholds, baseline)
-    event_log.emit("gate.decided", {"outcome": decision.outcome})
+    event_log.emit("gate.decided", {"decision": decision.decision, "outcome": decision.outcome})
     reasons = [reason.message for reason in decision.reasons]
     owner_assignments = owners_for_reasons(decision.reasons)
     owners = [assignment.owner for assignment in owner_assignments]
@@ -240,20 +279,36 @@ def run_closed_loop(
         mutable_version=mutable_version,
         thresholds=thresholds,
     )
-    manifest = RunManifest(
+    replay_inputs = _snapshot_replay_inputs(run_dir, corpus_root=corpus_root, golden_path=golden_path, online_path=online_path, thresholds_path=thresholds_path, baseline_path=baseline_path) if runs_root is not None else {
+        "corpus_root": str(corpus_root), "golden_path": str(golden_path), "online_path": str(online_path), "thresholds_path": str(thresholds_path), "baseline_path": str(baseline_path),
+    }
+    configuration = {
+        **configuration,
+        **replay_inputs,
+    }
+    manifest_path = (Path(runs_root) / run_id / "manifest.json") if runs_root is not None else None
+    manifest = RunManifest.create(
         run_id=run_id,
-        started_at=started_at,
-        completed_at=datetime.now(timezone.utc).isoformat(),
+        git_sha=identifiers["git_commit"],
+        corpus_hash=hashes["corpus"],
+        golden_set_hash=hashes["golden"],
+        embedding_model=identifiers["model"],
+        embedding_model_version="1",
+        index_configuration_hash=hashes["index"],
+        retrieval_configuration_hash=hashes["config"],
+        generator_configuration_hash=hashes["config"],
+        baseline_version=str((baseline.get("_lifecycle") or {}).get("current", hashes["baseline"])),
+        threshold_version=str((thresholds.get("provenance") or {}).get("threshold_version", "unversioned")),
+        created_at=started_at,
         decision=decision,
-        identifiers=identifiers,
-        hashes=hashes,
-        metadata=metadata,
         configuration=configuration,
+        metadata=metadata,
         artifacts={
-            "metrics": str(Path(metrics_path)),
-            "status": str(Path(status_path)),
-            "alert": str(Path(alert_path)),
-            "events": str(Path(events_path)),
+            "metrics": str(Path(metrics_path).relative_to(run_dir)) if runs_root is not None else str(Path(metrics_path)),
+            "status": str(Path(status_path).relative_to(run_dir)) if runs_root is not None else str(Path(status_path)),
+            "alert": str(Path(alert_path).relative_to(run_dir)) if runs_root is not None else str(Path(alert_path)),
+            "events": str(Path(events_path).relative_to(run_dir)) if runs_root is not None else str(Path(events_path)),
+            **({"manifest": "manifest.json"} if manifest_path else {}),
         },
     )
     manifest_payload = manifest.to_dict()
@@ -290,8 +345,11 @@ def run_closed_loop(
     status_file = Path(status_path)
     status_file.parent.mkdir(parents=True, exist_ok=True)
     status_file.write_text(json.dumps(status, indent=2, ensure_ascii=True) + "\n", encoding="utf-8")
+    if manifest_path is not None:
+        manifest_path.parent.mkdir(parents=True, exist_ok=True)
+        manifest_path.write_text(json.dumps(manifest_payload, indent=2, ensure_ascii=True) + "\n", encoding="utf-8")
 
-    if decision.outcome != "pass":
+    if decision.decision != "approve":
         emit_alert(
             decision_reasons=decision.reasons,
             owner_assignments=owner_assignments,
@@ -301,8 +359,9 @@ def run_closed_loop(
             alert_path=alert_path,
             webhook_url=webhook_url,
         )
+        event_log.emit("alert.emitted", {"owners": owners})
 
-    event_log.emit("run.completed", {"outcome": decision.outcome})
+    event_log.emit("run.completed", {"decision": decision.decision, "outcome": decision.outcome})
 
     return {
         "drift_detected": drift_detected,
@@ -317,6 +376,7 @@ def run_closed_loop(
         "owners": owners,
         "owner_assignments": [assignment.to_dict() for assignment in owner_assignments],
         "status_path": str(status_file),
+        "manifest_path": str(manifest_path) if manifest_path else None,
     }
 
 

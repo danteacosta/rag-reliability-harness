@@ -21,6 +21,26 @@ class InMemoryVectorStore:
             self._chunks[chunk.id] = chunk
             self._vectors[chunk.id] = self._embedder.embed(chunk.text)
 
+    def index(self, chunks: Sequence[Chunk], *, namespace: str = "default") -> None:
+        """Index chunks under a removable namespace."""
+        namespaced = [
+            Chunk(chunk.id, chunk.doc_id, chunk.text, {**chunk.metadata, "namespace": namespace})
+            for chunk in chunks
+        ]
+        self.upsert(namespaced)
+
+    def retrieve(self, query: str, *, k: int = 5, namespace: str = "default") -> list[RetrievalHit]:
+        return [hit for hit in self.similarity_search(query, k=len(self._chunks)) if hit.metadata.get("namespace", "default") == namespace][:k]
+
+    def delete_namespace(self, namespace: str) -> None:
+        for chunk_id, chunk in list(self._chunks.items()):
+            if chunk.metadata.get("namespace", "default") == namespace:
+                del self._chunks[chunk_id]
+                del self._vectors[chunk_id]
+
+    def health(self) -> dict[str, int | str]:
+        return {"status": "ok", "backend": "memory", "chunk_count": len(self._chunks)}
+
     @classmethod
     def from_vectors(
         cls,

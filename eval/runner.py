@@ -13,9 +13,15 @@ from retrieval.retriever import DEFAULT_K, HarnessRetriever
 
 from eval.metrics import (
     aggregate_retrieval_metrics,
+    citation_correctness,
+    context_precision,
+    context_recall,
     drift_ok,
+    freshness,
     groundedness,
+    ndcg_at_k,
     refusal_accuracy,
+    refusal_precision_recall,
 )
 
 DEFAULT_GOLDEN = Path("data/golden/set.jsonl")
@@ -98,6 +104,18 @@ def run_eval(
         )
 
     retrieval = aggregate_retrieval_metrics(per_item, k=k)
+    retrieval["ndcg"] = sum(
+        ndcg_at_k(item["retrieved"], item["relevant_chunk_ids"], k=k)
+        for item in per_item if item["relevant_chunk_ids"]
+    ) / max(1, sum(1 for item in per_item if item["relevant_chunk_ids"]))
+    retrieval["context_precision"] = sum(
+        context_precision(item["retrieved"], item["relevant_chunk_ids"], k=k)
+        for item in per_item if item["relevant_chunk_ids"]
+    ) / max(1, sum(1 for item in per_item if item["relevant_chunk_ids"]))
+    retrieval["context_recall"] = sum(
+        context_recall(item["retrieved"], item["relevant_chunk_ids"], k=k)
+        for item in per_item if item["relevant_chunk_ids"]
+    ) / max(1, sum(1 for item in per_item if item["relevant_chunk_ids"]))
     refusal = refusal_accuracy(per_item)
     mean_groundedness = (
         sum(groundedness_scores) / len(groundedness_scores) if groundedness_scores else 0.0
@@ -120,6 +138,10 @@ def run_eval(
         **retrieval,
         "groundedness": mean_groundedness,
         "refusal_accuracy": refusal,
+        **refusal_precision_recall(per_item),
+        "citation_correctness": citation_correctness(per_item),
+        "freshness": freshness(per_item),
+        "cost": 0.0,
         "latency_p50_ms": latency_p50,
         "latency_p95_ms": latency_p95,
         "fingerprint_active": fingerprint_active,

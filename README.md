@@ -81,6 +81,21 @@ make all
 
 Useful targets: `make test`, `make ingest`, `make eval`, `make gate`, `make simulate`, `make loop`.
 
+## Reproducible runs
+
+The single CLI writes a self-contained run directory (manifest, lifecycle JSONL,
+metrics, status and any alert) and can validate plus re-execute that artifact:
+
+```bash
+rag-reliability check --corpus ./data/corpus --golden ./data/golden/set.jsonl \
+  --baseline ./eval/baselines/ci.json --output ./runs
+rag-reliability replay --manifest runs/<run_id>/manifest.json
+```
+
+CI continues to use the extractive generator. `ReplayGenerator` reuses recorded
+answers, while `LLMGenerator` is optional and refuses safely unless a caller
+injects a provider callable.
+
 ## Attribution & optional adapters
 
 - FastAPI-style docs under `data/corpus/fastapi/` are original paraphrases — see [`data/ATTRIBUTION.md`](data/ATTRIBUTION.md).

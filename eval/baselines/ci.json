@@ -4,5 +4,14 @@
   "mrr": 0.8805555555555555,
   "groundedness": 1.0,
   "refusal_accuracy": 1.0,
-  "drift_ok": true
+  "drift_ok": true,
+  "_lifecycle": {
+    "current": "ci-v1",
+    "candidate": "ci-v2",
+    "canary": "ci-canary",
+    "historical": ["ci-v0"],
+    "minimum_sample_size": 10,
+    "confidence_interval": 0.95,
+    "threshold_sensitivity": 0.05
+  }
 }

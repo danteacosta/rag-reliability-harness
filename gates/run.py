@@ -6,7 +6,8 @@ from typing import Any
 
 import yaml
 
-from protocol_next import DecisionReason, Evidence, GateDecision
+from rag_harness.reliability import GateDecision, GateReason
+from rag_harness.reliability import BaselineLifecycle
 
 DEFAULT_THRESHOLDS = Path("eval/thresholds.yaml")
 DEFAULT_BASELINE = Path("eval/baselines/ci.json")
@@ -38,6 +39,15 @@ def load_baseline(path: Path | str = DEFAULT_BASELINE) -> dict[str, Any]:
     return data
 
 
+def load_baseline_lifecycle(path: Path | str) -> BaselineLifecycle:
+    """Load the version-selection policy carried with a baseline artifact."""
+    data = load_baseline(path)
+    lifecycle = data.get("_lifecycle")
+    if not isinstance(lifecycle, dict):
+        raise ValueError("baseline lifecycle metadata is required")
+    return BaselineLifecycle.from_dict(lifecycle)
+
+
 def load_metrics(path: Path | str = DEFAULT_METRICS) -> dict[str, Any]:
     with Path(path).open(encoding="utf-8") as handle:
         data = json.load(handle)
@@ -62,15 +72,11 @@ def decide_gate(
     baseline: dict[str, Any],
 ) -> GateDecision:
     """Evaluate a gate using stable reason codes and structured evidence."""
-    failures: list[DecisionReason] = []
+    failures: list[GateReason] = []
 
     if thresholds.get("require_drift_ok", False) and metrics.get("drift_ok") is not True:
         failures.append(
-            DecisionReason(
-                code="required_condition_not_met",
-                message="drift_ok required but metrics['drift_ok'] is not True",
-                evidence=(Evidence("condition", "drift_ok", metrics.get("drift_ok"), True, "=="),),
-            )
+            GateReason("drift.required", "ingest", "drift_ok", metrics.get("drift_ok"), True, "ingest", "drift_ok required but metrics['drift_ok'] is not True")
         )
 
     floors = thresholds.get("floors") or {}
@@ -78,20 +84,12 @@ def decide_gate(
         value = metrics.get(key)
         if value is None:
             failures.append(
-                DecisionReason(
-                    code="metric_missing",
-                    message=f"floor {key}: missing metric",
-                    evidence=(Evidence("metric", key, source="metrics"),),
-                )
+                GateReason("metric.missing", _surface_for_metric(key), key, None, float(floor), _owner_for_metric(key), f"floor {key}: missing metric")
             )
             continue
         if float(value) < float(floor):
             failures.append(
-                DecisionReason(
-                    code="floor_not_met",
-                    message=f"floor {key}: {float(value):.4f} < {float(floor):.4f}",
-                    evidence=(Evidence("metric", key, float(value), float(floor), ">=", "metrics"),),
-                )
+                GateReason("floor_not_met", _surface_for_metric(key), key, float(value), float(floor), _owner_for_metric(key), f"floor {key}: {float(value):.4f} < {float(floor):.4f}")
             )
 
     max_slip = thresholds.get("max_slip") or {}
@@ -100,36 +98,40 @@ def decide_gate(
         base = baseline.get(key)
         if current is None:
             failures.append(
-                DecisionReason(
-                    code="metric_missing",
-                    message=f"slip {key}: missing current metric",
-                    evidence=(Evidence("metric", key, source="metrics"),),
-                )
+                GateReason("metric.missing", _surface_for_metric(key), key, None, float(slip_limit), _owner_for_metric(key), f"slip {key}: missing current metric")
             )
             continue
         if base is None:
             failures.append(
-                DecisionReason(
-                    code="baseline_metric_missing",
-                    message=f"slip {key}: missing baseline metric",
-                    evidence=(Evidence("metric", key, source="baseline"),),
-                )
+                GateReason("baseline.metric_missing", _surface_for_metric(key), key, None, float(slip_limit), _owner_for_metric(key), f"slip {key}: missing baseline metric")
             )
             continue
         slip = float(base) - float(current)
         if slip > float(slip_limit):
             failures.append(
-                DecisionReason(
-                    code="baseline_slip_exceeded",
-                    message=(
+                GateReason(
+                    "baseline_slip_exceeded", _surface_for_metric(key), key, slip, float(slip_limit), _owner_for_metric(key), (
                         f"slip {key}: {slip:.4f} > max_slip {float(slip_limit):.4f} "
                         f"(baseline={float(base):.4f}, current={float(current):.4f})"
                     ),
-                    evidence=(Evidence("regression", key, slip, float(slip_limit), "<=", "baseline"),),
                 )
             )
 
-    return GateDecision.passed() if not failures else GateDecision.failed(*failures)
+    return GateDecision.approve() if not failures else GateDecision("block", tuple(failures), tuple(failures))
+
+
+def _surface_for_metric(metric: str) -> str:
+    if metric == "drift_ok":
+        return "ingest"
+    if any(token in metric for token in ("recall", "precision", "mrr", "ndcg")):
+        return "retrieval"
+    if any(token in metric for token in ("groundedness", "refusal", "citation")):
+        return "generation"
+    return "infra"
+
+
+def _owner_for_metric(metric: str) -> str:
+    return "generate" if _surface_for_metric(metric) == "generation" else _surface_for_metric(metric)
 
 
 def check_gate_blind(metrics: dict[str, Any]) -> tuple[bool, list[str]]:

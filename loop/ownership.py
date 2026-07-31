@@ -26,7 +26,8 @@ def owners_for_reasons(reasons: Iterable[DecisionReason]) -> list[OwnerAssignmen
     """Assign owners from reason evidence, never by parsing display messages."""
     grouped: dict[str, dict[str, list]] = {}
     for reason in reasons:
-        for owner in _owners_for_evidence(reason.evidence):
+        explicit_owner = getattr(reason, "owner", None)
+        for owner in ({explicit_owner} if explicit_owner else _owners_for_evidence(reason.evidence)):
             group = grouped.setdefault(owner, {"codes": [], "evidence": []})
             if reason.code not in group["codes"]:
                 group["codes"].append(reason.code)

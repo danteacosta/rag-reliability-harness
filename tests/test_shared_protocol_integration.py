@@ -11,7 +11,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def test_closed_loop_manifest_validates_with_shared_protocol(tmp_path: Path) -> None:
-    assert __version__ == "0.1.1"
+    assert __version__ == "2.0.5"
     result = run_closed_loop(
         corpus_root=ROOT / "data" / "corpus",
         index_dir=tmp_path / "index",

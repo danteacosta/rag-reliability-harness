@@ -27,7 +27,7 @@ def replay_manifest(path: Path | str, *, reexecute: bool = False) -> dict[str, A
         _validate_lifecycle(events, manifest)
     report = {
         "run_id": manifest.run_id,
-        "outcome": getattr(manifest.decision, "decision", manifest.decision.outcome),
+        "outcome": manifest.decision.outcome,
         "events": len(events),
     }
     if reexecute:
@@ -63,8 +63,11 @@ def _validate_lifecycle(events: list[Any], manifest: RunManifest) -> None:
             seen.add(event.event_id)
     gate = next(event for event in events if event.type == "gate.decided")
     completed = next(event for event in reversed(events) if event.type == "run.completed")
-    expected = getattr(manifest.decision, "decision", manifest.decision.outcome)
-    actual_gate = gate.data.get("decision", gate.data.get("outcome"))
-    actual_completed = completed.data.get("decision", completed.data.get("outcome"))
+    # Legacy lifecycle streams encode outcome=pass/fail; v2 streams encode
+    # decision=approve/warn/block. Compare like-for-like at the event boundary.
+    use_legacy_outcome = any("outcome" in event.data for event in (gate, completed))
+    expected = manifest.decision.outcome if use_legacy_outcome else manifest.decision.decision
+    actual_gate = gate.data.get("outcome") if use_legacy_outcome else gate.data.get("decision")
+    actual_completed = completed.data.get("outcome") if use_legacy_outcome else completed.data.get("decision")
     if actual_gate != expected or actual_completed != expected:
         raise ValueError("lifecycle decision does not match manifest")

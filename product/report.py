@@ -1,0 +1,123 @@
+"""JSON and SARIF reports assembled from shared ARP contracts."""
+
+from __future__ import annotations
+
+import json
+from dataclasses import dataclass, field
+from typing import Any, Mapping, Sequence
+
+from agent_reliability_protocol import GateDecision, LifecycleEvent, RunManifest
+
+
+@dataclass(frozen=True)
+class ProductGateReport:
+    """A consumer-facing report with an opaque RAG adapter payload.
+
+    ``manifest``, ``decision`` and ``events`` are shared ARP contracts.  The
+    ``rag`` mapping is deliberately namespaced and opaque so RAG-specific
+    fields do not become a second product protocol.
+    """
+
+    manifest: RunManifest
+    events: tuple[LifecycleEvent, ...] = ()
+    metrics: Mapping[str, Any] = field(default_factory=dict)
+    rag: Mapping[str, Any] = field(default_factory=dict)
+
+    @classmethod
+    def from_run(
+        cls,
+        manifest: RunManifest,
+        events: Sequence[LifecycleEvent],
+        *,
+        metrics: Mapping[str, Any],
+        rag: Mapping[str, Any] | None = None,
+    ) -> "ProductGateReport":
+        foreign = [event.run_id for event in events if event.run_id != manifest.run_id]
+        if foreign:
+            raise ValueError(
+                f"all lifecycle events must use manifest run_id {manifest.run_id!r}; got {foreign[0]!r}"
+            )
+        return cls(
+            manifest=manifest,
+            events=tuple(events),
+            metrics=dict(metrics),
+            rag=dict(rag or {}),
+        )
+
+    @property
+    def decision(self) -> GateDecision:
+        decision = self.manifest.decision
+        if decision is None:
+            raise ValueError("manifest must carry a gate decision")
+        return decision
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "schema_version": "rag-product-report/v1",
+            "run_id": self.manifest.run_id,
+            "decision": self.decision.to_dict(),
+            "manifest": self.manifest.to_dict(),
+            "events": [event.to_dict() for event in self.events],
+            "metrics": dict(self.metrics),
+            "rag": dict(self.rag),
+        }
+
+    def to_json(self, *, indent: int = 2) -> str:
+        return json.dumps(self.to_dict(), indent=indent, ensure_ascii=True) + "\n"
+
+    def to_sarif(self) -> dict[str, Any]:
+        """Return a SARIF 2.1.0 document suitable for CI check-runs."""
+        results = []
+        level = _sarif_level(self.decision)
+        if level is not None:
+            for reason in self.decision.reasons:
+                evidence = [_evidence_dict(item) for item in reason.evidence]
+                results.append(
+                    {
+                        "ruleId": reason.code,
+                        "level": level,
+                        "message": {"text": reason.message},
+                        "properties": {
+                            "runId": self.manifest.run_id,
+                            "evidence": evidence,
+                        },
+                    }
+                )
+        return {
+            "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
+            "version": "2.1.0",
+            "runs": [
+                {
+                    "tool": {
+                        "driver": {
+                            "name": "RAG Reliability Product Gate",
+                            "informationUri": "https://github.com/danteacosta/rag-reliability-harness",
+                            "version": self.manifest.harness_version,
+                        }
+                    },
+                    "automationDetails": {"id": self.manifest.run_id},
+                    "properties": {"metrics": dict(self.metrics), "rag": dict(self.rag)},
+                    "results": results,
+                }
+            ],
+        }
+
+
+def _sarif_level(decision: GateDecision) -> str | None:
+    value = decision.decision
+    if value == "approve":
+        return None
+    if value in {"warn", "request_clarification"}:
+        return "warning"
+    return "error"
+
+
+def _evidence_dict(evidence: Any) -> dict[str, Any]:
+    payload = evidence.to_dict()
+    # EvidenceReference uses metric_name/observed_value; normalize only in the
+    # SARIF adapter while retaining the source contract unchanged in JSON.
+    if "metric_name" in payload:
+        payload.setdefault("subject", payload["metric_name"])
+    if "observed_value" in payload:
+        payload.setdefault("observed", payload["observed_value"])
+    return payload

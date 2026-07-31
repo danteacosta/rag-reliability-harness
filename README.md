@@ -96,6 +96,24 @@ CI continues to use the extractive generator. `ReplayGenerator` reuses recorded
 answers, while `LLMGenerator` is optional and refuses safely unless a caller
 injects a provider callable.
 
+## Product gate reports
+
+The product layer is a thin adapter over the shared
+`agent-reliability-protocol` contracts. It renders an ARP manifest and
+lifecycle stream as JSON or SARIF for CI check-runs; RAG metrics remain
+namespaced payloads rather than a second gate protocol:
+
+```bash
+python -m product --manifest runs/<run_id>/manifest.json \
+  --events runs/<run_id>/events.jsonl \
+  --metrics runs/<run_id>/metrics.json \
+  --format sarif --output runs/<run_id>/report.sarif
+```
+
+`product.gate.decide_product_gate` likewise returns the shared ARP decision
+object, so consumers do not need to import the harness's former local gate or
+manifest classes.
+
 ## Attribution & optional adapters
 
 - FastAPI-style docs under `data/corpus/fastapi/` are original paraphrases — see [`data/ATTRIBUTION.md`](data/ATTRIBUTION.md).

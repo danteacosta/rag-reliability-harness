@@ -8,6 +8,7 @@ import pytest
 from agent_reliability_protocol import LifecycleEvent, RunManifest
 from loop.run import run_closed_loop
 from product.arp_adapter import read_arp_events, read_arp_manifest
+from protocol_next.replay import replay_manifest
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -43,6 +44,8 @@ def test_closed_loop_emits_arp_v2_manifest_and_events(tmp_path: Path) -> None:
     assert all(event.schema_version == "2.0.5" for event in events)
     assert events[-1].event_type == "episode.completed"
     assert any(event.event_type == "gate.decided" for event in events)
+    replay = replay_manifest(manifest_path)
+    assert replay["events"] == len(events)
 
 
 def test_invalid_arp_event_envelope_fails_closed(tmp_path: Path) -> None:

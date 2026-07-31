@@ -98,7 +98,7 @@ def test_at_loop2_gate_failure_emits_alert_with_ownership(tmp_path: Path) -> Non
     )
 
     assert result["gate_ok"] is False
-    assert result["exit_code"] == 1
+    assert result["exit_code"] == 20
     assert result["decision"]["outcome"] == "fail"
     assert result["decision"]["reasons"][0]["code"] == "floor_not_met"
     assert result["reasons"]

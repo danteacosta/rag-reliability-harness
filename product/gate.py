@@ -20,6 +20,7 @@ def decide_product_gate(
     """
 
     reasons: list[DecisionReason] = []
+    warning_reasons: list[DecisionReason] = []
     if thresholds.get("require_drift_ok", False) and metrics.get("drift_ok") is not True:
         reasons.append(
             _reason(
@@ -101,23 +102,58 @@ def decide_product_gate(
                     )
                 )
 
+    # Soft thresholds are a product concern and never override a hard floor.
+    # They intentionally use the same neutral ARP reason/evidence shape.
+    for key, warning_floor in (thresholds.get("warnings") or {}).items():
+        value = metrics.get(key)
+        if value is None:
+            warning_reasons.append(
+                _reason(
+                    "warning.metric_missing",
+                    f"warning {key}: missing metric",
+                    kind="metric",
+                    subject=key,
+                    expected=float(warning_floor),
+                    comparator=">=",
+                )
+            )
+        elif float(value) < float(warning_floor):
+            warning_reasons.append(
+                _reason(
+                    "warning_floor_not_met",
+                    f"warning {key}: {float(value):.4f} < {float(warning_floor):.4f}",
+                    kind="metric",
+                    subject=key,
+                    observed=float(value),
+                    expected=float(warning_floor),
+                    comparator=">=",
+                )
+            )
+
     threshold_version = str(
         thresholds.get("threshold_version")
         or (thresholds.get("provenance") or {}).get("threshold_version")
         or "rag-product"
     )
-    if not reasons:
+    if reasons:
         return GateDecision(
-            decision="approve",
+            decision="block",
+            reasons=tuple(reasons),
+            checkpoint="gate.decided",
+            threshold_version=threshold_version,
+        )
+    if warning_reasons:
+        return GateDecision(
+            decision="warn",
+            reasons=tuple(warning_reasons),
             checkpoint="gate.decided",
             threshold_version=threshold_version,
         )
     return GateDecision(
-        decision="block",
-        reasons=tuple(reasons),
-        checkpoint="gate.decided",
-        threshold_version=threshold_version,
-    )
+            decision="approve",
+            checkpoint="gate.decided",
+            threshold_version=threshold_version,
+        )
 
 
 def _reason(

@@ -83,6 +83,24 @@ def test_product_report_emits_sarif_result_for_each_shared_reason() -> None:
     assert result["ruleId"] == "drift.required"
     assert result["level"] == "error"
     assert result["properties"]["runId"] == "run-123"
+    assert result["properties"]["evidence"][0]["evidence_id"] == "drift.required:drift_ok"
+
+
+def test_product_report_maps_warn_to_sarif_warning_and_approve_to_note() -> None:
+    warning = DecisionReason("soft_floor", "watch recall", (Evidence("metric", "recall@5", 0.7, 0.8, ">="),))
+    warn_report = ProductGateReport.from_run(
+        _manifest(GateDecision(decision="warn", reasons=(warning,), checkpoint="gate.decided", threshold_version="ci-v1")),
+        [], metrics={},
+    )
+    warning_result = warn_report.to_sarif()["runs"][0]["results"][0]
+    assert warning_result["level"] == "warning"
+
+    approve_report = ProductGateReport.from_run(
+        _manifest(GateDecision(decision="approve", checkpoint="gate.decided", threshold_version="ci-v1")),
+        [], metrics={},
+    )
+    note_result = approve_report.to_sarif()["runs"][0]["results"][0]
+    assert note_result["level"] == "note"
 
 
 def test_product_report_rejects_events_from_another_run() -> None:

@@ -8,6 +8,8 @@ from typing import Any, Mapping, Sequence
 
 from agent_reliability_protocol import GateDecision, LifecycleEvent, RunManifest
 
+from product.codes import product_exit_code
+
 
 @dataclass(frozen=True)
 class ProductGateReport:
@@ -51,6 +53,11 @@ class ProductGateReport:
             raise ValueError("manifest must carry a gate decision")
         return decision
 
+    @property
+    def exit_code(self) -> int:
+        """Return the stable product-process code (0/10/20)."""
+        return product_exit_code(self.decision)
+
     def to_dict(self) -> dict[str, Any]:
         return {
             "schema_version": "rag-product-report/v1",
@@ -71,7 +78,10 @@ class ProductGateReport:
         level = _sarif_level(self.decision)
         if level is not None:
             for reason in self.decision.reasons:
-                evidence = [_evidence_dict(item) for item in reason.evidence]
+                evidence = [
+                    _evidence_dict(item, evidence_id=f"{reason.code}:{_evidence_subject(item)}")
+                    for item in reason.evidence
+                ]
                 results.append(
                     {
                         "ruleId": reason.code,
@@ -83,6 +93,15 @@ class ProductGateReport:
                         },
                     }
                 )
+        else:
+            results.append(
+                {
+                    "ruleId": "gate.approved",
+                    "level": "note",
+                    "message": {"text": "RAG reliability gate approved"},
+                    "properties": {"runId": self.manifest.run_id},
+                }
+            )
         return {
             "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
             "version": "2.1.0",
@@ -112,7 +131,12 @@ def _sarif_level(decision: GateDecision) -> str | None:
     return "error"
 
 
-def _evidence_dict(evidence: Any) -> dict[str, Any]:
+def _evidence_subject(evidence: Any) -> str:
+    payload = evidence.to_dict()
+    return str(payload.get("subject") or payload.get("metric_name") or payload.get("evidence_id") or "evidence")
+
+
+def _evidence_dict(evidence: Any, *, evidence_id: str) -> dict[str, Any]:
     payload = evidence.to_dict()
     # EvidenceReference uses metric_name/observed_value; normalize only in the
     # SARIF adapter while retaining the source contract unchanged in JSON.
@@ -120,4 +144,5 @@ def _evidence_dict(evidence: Any) -> dict[str, Any]:
         payload.setdefault("subject", payload["metric_name"])
     if "observed_value" in payload:
         payload.setdefault("observed", payload["observed_value"])
+    payload.setdefault("evidence_id", evidence_id)
     return payload

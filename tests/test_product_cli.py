@@ -24,3 +24,10 @@ def test_product_cli_writes_sarif_report_and_returns_gate_exit_code(tmp_path: Pa
     payload = json.loads(output_path.read_text(encoding="utf-8"))
     assert payload["version"] == "2.1.0"
     assert payload["runs"][0]["automationDetails"]["id"] == "run-cli"
+
+
+def test_product_cli_returns_contract_error_code_for_invalid_manifest(tmp_path: Path) -> None:
+    manifest_path = tmp_path / "invalid.json"
+    manifest_path.write_text("{\"schema_version\": \"not-semver\"}", encoding="utf-8")
+
+    assert main(["--manifest", str(manifest_path)]) == 30

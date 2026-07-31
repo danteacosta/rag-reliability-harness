@@ -23,7 +23,7 @@ def _check(args: argparse.Namespace) -> int:
 def _replay(args: argparse.Namespace) -> int:
     report = replay_manifest(args.manifest, reexecute=True)
     print(json.dumps(report, indent=2))
-    return 0 if report["outcome"] == "approve" else 1
+    return 0 if report["outcome"] in {"approve", "pass"} else 1
 
 
 def main(argv: list[str] | None = None) -> int:

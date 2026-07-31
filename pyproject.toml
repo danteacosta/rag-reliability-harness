@@ -3,7 +3,7 @@ name = "rag-reliability-harness"
 version = "0.1.0"
 requires-python = ">=3.11"
 dependencies = [
-  "agent-reliability-protocol @ git+https://github.com/danteacosta/agent-reliability-protocol.git@v0.1.1",
+  "agent-reliability-protocol @ git+https://github.com/danteacosta/agent-reliability-protocol.git@v2.0.5",
   "numpy>=1.26",
   "pyyaml>=6.0",
   "langchain-core>=0.2",

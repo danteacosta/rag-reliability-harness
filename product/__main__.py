@@ -1,0 +1,43 @@
+from __future__ import annotations
+
+import argparse
+import json
+import sys
+from pathlib import Path
+
+from product.report import ProductGateReport
+from product.codes import PRODUCT_EXIT_CONTRACT
+from product.arp_adapter import read_arp_events, read_arp_manifest
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description="Render a shared ARP run as a product gate report.")
+    parser.add_argument("--manifest", type=Path, required=True)
+    parser.add_argument("--events", type=Path)
+    parser.add_argument("--metrics", type=Path)
+    parser.add_argument("--rag", type=Path, help="Optional opaque RAG adapter payload JSON.")
+    parser.add_argument("--format", choices=("json", "sarif"), default="json")
+    parser.add_argument("--output", type=Path)
+    args = parser.parse_args(argv)
+
+    try:
+        manifest = read_arp_manifest(args.manifest)
+        events = read_arp_events(args.events, run_id=manifest.run_id) if args.events else []
+        metrics = json.loads(args.metrics.read_text(encoding="utf-8")) if args.metrics else {}
+        rag = json.loads(args.rag.read_text(encoding="utf-8")) if args.rag else {}
+        report = ProductGateReport.from_run(manifest, events, metrics=metrics, rag=rag)
+    except (OSError, ValueError, TypeError, KeyError, json.JSONDecodeError) as exc:
+        print(f"contract error: {exc}", file=sys.stderr)
+        return PRODUCT_EXIT_CONTRACT
+    payload = report.to_sarif() if args.format == "sarif" else report.to_dict()
+    rendered = json.dumps(payload, indent=2, ensure_ascii=True) + "\n"
+    if args.output:
+        args.output.parent.mkdir(parents=True, exist_ok=True)
+        args.output.write_text(rendered, encoding="utf-8")
+    else:
+        print(rendered, end="")
+    return report.exit_code
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

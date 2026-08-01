@@ -6,7 +6,8 @@ import json
 from pathlib import Path
 from typing import Any, Mapping
 
-from agent_reliability_protocol import RunManifest as SharedRunManifest
+from agent_reliability_protocol import GateDecision, RunManifest as SharedRunManifest
+from product.arp_adapter import read_arp_events
 from rag_harness.reliability import RunManifest as RagRunManifest
 from protocol_next.events import collect_lifecycle_events
 
@@ -16,13 +17,24 @@ def replay_manifest(path: Path | str, *, reexecute: bool = False) -> dict[str, A
     payload = json.loads(Path(path).read_text(encoding="utf-8"))
     if "manifest" in payload:
         payload = payload["manifest"]
+    is_arp_manifest = payload.get("schema_version") == "2.0.5" and "experiment_id" in payload
     is_rag_manifest = payload.get("rag_schema_version") == "rag-reliability/v1" or payload.get("schema_version") == "rag-reliability/v1"
-    manifest = RagRunManifest.from_dict(payload) if is_rag_manifest else SharedRunManifest.from_dict(payload)
+    if is_arp_manifest and isinstance(payload.get("decision"), dict):
+        payload["decision"] = GateDecision.from_dict(payload["decision"])
+    manifest = (
+        SharedRunManifest.from_dict(payload)
+        if is_arp_manifest
+        else RagRunManifest.from_dict(payload) if is_rag_manifest else SharedRunManifest.from_dict(payload)
+    )
     manifest_root = Path(path).parent
     events_path = manifest.artifacts.get("events")
     if events_path and not Path(events_path).is_absolute():
         events_path = str(manifest_root / events_path)
-    events = collect_lifecycle_events(events_path, run_id=manifest.run_id) if events_path else []
+    events = (
+        read_arp_events(events_path, run_id=manifest.run_id)
+        if events_path and is_arp_manifest
+        else collect_lifecycle_events(events_path, run_id=manifest.run_id) if events_path else []
+    )
     if events:
         _validate_lifecycle(events, manifest)
     report = {
@@ -31,11 +43,11 @@ def replay_manifest(path: Path | str, *, reexecute: bool = False) -> dict[str, A
         "events": len(events),
     }
     if reexecute:
-        if not is_rag_manifest:
+        if not (is_rag_manifest or is_arp_manifest):
             raise ValueError("only standalone RAG manifests can be re-executed")
         from loop.run import run_closed_loop
 
-        config = manifest.configuration
+        config = manifest.configuration.get("rag", manifest.configuration)
         def resolve(name: str) -> str:
             candidate = Path(str(config[name]))
             return str(candidate if candidate.is_absolute() else manifest_root / candidate)
@@ -48,9 +60,13 @@ def replay_manifest(path: Path | str, *, reexecute: bool = False) -> dict[str, A
     return report
 
 
-def _validate_lifecycle(events: list[Any], manifest: RunManifest) -> None:
+def _validate_lifecycle(events: list[Any], manifest: Any) -> None:
     event_types = [event.type for event in events]
-    required = ["run.started", "gate.decided", "run.completed"]
+    is_arp = (
+        not isinstance(manifest, RagRunManifest)
+        and str(getattr(manifest, "schema_version", "")) not in {"arp/v1", "protocol_next/v1"}
+    )
+    required = ["episode.started", "gate.decided", "episode.completed"] if is_arp else ["run.started", "gate.decided", "run.completed"]
     if any(event_type not in event_types for event_type in required):
         raise ValueError("lifecycle stream is missing required events")
     if isinstance(manifest, RagRunManifest):
@@ -62,7 +78,7 @@ def _validate_lifecycle(events: list[Any], manifest: RunManifest) -> None:
                 raise ValueError("RAG lifecycle parent must precede and reference an existing event")
             seen.add(event.event_id)
     gate = next(event for event in events if event.type == "gate.decided")
-    completed = next(event for event in reversed(events) if event.type == "run.completed")
+    completed = next(event for event in reversed(events) if event.type == ("episode.completed" if is_arp else "run.completed"))
     # Legacy lifecycle streams encode outcome=pass/fail; v2 streams encode
     # decision=approve/warn/block. Compare like-for-like at the event boundary.
     use_legacy_outcome = any("outcome" in event.data for event in (gate, completed))

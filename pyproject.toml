@@ -3,7 +3,7 @@ name = "rag-reliability-harness"
 version = "0.1.0"
 requires-python = ">=3.11"
 dependencies = [
-  "agent-reliability-protocol @ git+https://github.com/danteacosta/agent-reliability-protocol.git@v2.0.5",
+  "agent-reliability-protocol @ git+https://github.com/danteacosta/agent-reliability-protocol.git@v2.0.6",
   "numpy>=1.26",
   "pyyaml>=6.0",
   "langchain-core>=0.2",
@@ -25,4 +25,4 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
-include = ["rag_harness*", "ingest*", "retrieval*", "eval*", "gates*", "observability*", "loop*", "protocol_next*"]
+include = ["rag_harness*", "ingest*", "retrieval*", "eval*", "gates*", "observability*", "loop*", "protocol_next*", "product*"]

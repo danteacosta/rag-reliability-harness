@@ -26,16 +26,16 @@ from eval.runner import (
 from gates.run import (
     DEFAULT_BASELINE,
     DEFAULT_THRESHOLDS,
-    decide_gate,
     load_baseline,
     load_thresholds,
 )
 from ingest.pipeline import ingest_corpus, load_fingerprint, load_index
 from loop.alert import emit_alert
 from loop.ownership import owners_for_reasons
+from product.arp_adapter import ArpV2EventLog, build_arp_manifest
+from product.codes import product_exit_code
+from product.gate import decide_product_gate
 from retrieval.retriever import DEFAULT_K, HarnessRetriever
-from protocol_next import EventLog
-from rag_harness.reliability import GateDecision, RunManifest
 from retrieval.adapters import ExtractiveGeneratorAdapter, HarnessRetrievalAdapter
 
 DEFAULT_ONLINE = Path("data/online/traffic_sample.jsonl")
@@ -217,7 +217,12 @@ def run_closed_loop(
         metrics_path, alert_path, status_path, events_path = (
             run_dir / "metrics.json", run_dir / "alert.json", run_dir / "status.json", run_dir / "events.jsonl",
         )
-    event_log = EventLog(events_path, run_id=run_id)
+    event_log = ArpV2EventLog(
+        events_path,
+        experiment_id="rag-reliability",
+        run_id=run_id,
+        episode_id=run_id,
+    )
     event_log.emit("run.started", {"component": "closed_loop"})
     corpus_root = Path(corpus_root)
     index_dir = Path(index_dir)
@@ -265,7 +270,7 @@ def run_closed_loop(
 
     thresholds = load_thresholds(thresholds_path)
     baseline = load_baseline(baseline_path)
-    decision: GateDecision = decide_gate(metrics, thresholds, baseline)
+    decision = decide_product_gate(metrics, thresholds, baseline)
     event_log.emit("gate.decided", {"decision": decision.decision, "outcome": decision.outcome})
     reasons = [reason.message for reason in decision.reasons]
     owner_assignments = owners_for_reasons(decision.reasons)
@@ -287,22 +292,19 @@ def run_closed_loop(
         **replay_inputs,
     }
     manifest_path = (Path(runs_root) / run_id / "manifest.json") if runs_root is not None else None
-    manifest = RunManifest.create(
+    metadata = {
+        **metadata,
+        "drift_classification": drift_classification,
+        "drift_detected": drift_detected,
+        "metrics_summary": {
+            key: metrics.get(key)
+            for key in ("recall@5", "precision@5", "mrr", "groundedness", "refusal_accuracy", "drift_ok")
+        },
+    }
+    manifest = build_arp_manifest(
         run_id=run_id,
-        git_sha=identifiers["git_commit"],
-        corpus_hash=hashes["corpus"],
-        golden_set_hash=hashes["golden"],
-        embedding_model=identifiers["model"],
-        embedding_model_version="1",
-        index_configuration_hash=hashes["index"],
-        retrieval_configuration_hash=hashes["config"],
-        generator_configuration_hash=hashes["config"],
-        baseline_version=str((baseline.get("_lifecycle") or {}).get("current", hashes["baseline"])),
-        threshold_version=str((thresholds.get("provenance") or {}).get("threshold_version", "unversioned")),
-        created_at=started_at,
-        decision=decision,
-        configuration=configuration,
-        metadata=metadata,
+        started_at=started_at, decision=decision, identifiers=identifiers, hashes=hashes,
+        metadata=metadata, configuration=configuration,
         artifacts={
             "metrics": str(Path(metrics_path).relative_to(run_dir)) if runs_root is not None else str(Path(metrics_path)),
             "status": str(Path(status_path).relative_to(run_dir)) if runs_root is not None else str(Path(status_path)),
@@ -312,10 +314,14 @@ def run_closed_loop(
         },
     )
     manifest_payload = manifest.to_dict()
+    decision_payload = decision.to_dict()
+    # Keep the legacy outcome label in loop/status responses while the
+    # persisted manifest remains the neutral ARP v2 decision envelope.
+    decision_payload["outcome"] = decision.outcome
 
     status: dict[str, Any] = {
         "healthy": decision.outcome == "pass",
-        "decision": decision.to_dict(),
+        "decision": decision_payload,
         "manifest": manifest_payload,
         "drift_detected": drift_detected,
         "drift_classification": drift_classification,
@@ -367,11 +373,11 @@ def run_closed_loop(
         "drift_detected": drift_detected,
         "reingested": reingested,
         "drift_classification": drift_classification,
-        "decision": decision.to_dict(),
+        "decision": decision_payload,
         "manifest": manifest_payload,
         # Compatibility fields retained for existing callers and CLI expectations.
         "gate_ok": decision.outcome == "pass",
-        "exit_code": decision.exit_code,
+        "exit_code": product_exit_code(decision),
         "reasons": reasons,
         "owners": owners,
         "owner_assignments": [assignment.to_dict() for assignment in owner_assignments],

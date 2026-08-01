@@ -6,7 +6,7 @@ import json
 from dataclasses import dataclass, field
 from typing import Any, Mapping, Sequence
 
-from agent_reliability_protocol import GateDecision, LifecycleEvent, RunManifest
+from agent_reliability_protocol import GateDecision, LifecycleEvent, RunManifest, validate_thesis_envelope
 
 from product.codes import product_exit_code
 
@@ -39,6 +39,8 @@ class ProductGateReport:
             raise ValueError(
                 f"all lifecycle events must use manifest run_id {manifest.run_id!r}; got {foreign[0]!r}"
             )
+        if events:
+            validate_thesis_envelope(manifest, events)
         return cls(
             manifest=manifest,
             events=tuple(events),
@@ -77,14 +79,17 @@ class ProductGateReport:
         results = []
         level = _sarif_level(self.decision)
         if level is not None:
-            for reason in self.decision.reasons:
+            for reason_index, reason in enumerate(self.decision.reasons):
                 evidence = [
-                    _evidence_dict(item, evidence_id=f"{reason.code}:{_evidence_subject(item)}")
-                    for item in reason.evidence
+                    _evidence_dict(
+                        item,
+                        evidence_id=f"{reason.code}:{reason_index}:{evidence_index}:{_evidence_subject(item)}",
+                    )
+                    for evidence_index, item in enumerate(reason.evidence)
                 ]
                 results.append(
                     {
-                        "ruleId": reason.code,
+                        "ruleId": f"{reason.code}:{reason_index}",
                         "level": level,
                         "message": {"text": reason.message},
                         "properties": {

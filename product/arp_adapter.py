@@ -8,7 +8,12 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Mapping
 
-from agent_reliability_protocol import GateDecision, LifecycleEvent, RunManifest
+from agent_reliability_protocol import (
+    GateDecision,
+    LifecycleEvent,
+    RunManifest,
+    validate_lifecycle_sequence,
+)
 
 ARP_SCHEMA_VERSION = "2.0.5"
 
@@ -146,4 +151,6 @@ def read_arp_events(path: Path | str, *, run_id: str) -> list[LifecycleEvent]:
             events.append(event)
         except (json.JSONDecodeError, KeyError, TypeError, ValueError) as exc:
             raise ValueError(f"invalid ARP lifecycle envelope at line {line_number}: {exc}") from exc
+    if events:
+        validate_lifecycle_sequence(events)
     return events

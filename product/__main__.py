@@ -5,10 +5,9 @@ import json
 import sys
 from pathlib import Path
 
-from agent_reliability_protocol import GateDecision, LifecycleEvent, RunManifest
-
 from product.report import ProductGateReport
 from product.codes import PRODUCT_EXIT_CONTRACT
+from product.arp_adapter import read_arp_events, read_arp_manifest
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -22,17 +21,8 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     try:
-        manifest_payload = json.loads(args.manifest.read_text(encoding="utf-8"))
-        # ARP v2.0.5's compatibility ``from_dict`` keeps the decision mapping
-        # opaque; normalize it at this adapter boundary before rendering.
-        if isinstance(manifest_payload.get("decision"), dict):
-            manifest_payload["decision"] = GateDecision.from_dict(manifest_payload["decision"])
-        manifest = RunManifest.from_dict(manifest_payload)
-        events = []
-        if args.events:
-            for line in args.events.read_text(encoding="utf-8").splitlines():
-                if line.strip():
-                    events.append(LifecycleEvent.from_dict(json.loads(line)))
+        manifest = read_arp_manifest(args.manifest)
+        events = read_arp_events(args.events, run_id=manifest.run_id) if args.events else []
         metrics = json.loads(args.metrics.read_text(encoding="utf-8")) if args.metrics else {}
         rag = json.loads(args.rag.read_text(encoding="utf-8")) if args.rag else {}
         report = ProductGateReport.from_run(manifest, events, metrics=metrics, rag=rag)

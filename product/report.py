@@ -79,6 +79,7 @@ class ProductGateReport:
         results = []
         level = _sarif_level(self.decision)
         if level is not None:
+            reason_codes = [reason.code for reason in self.decision.reasons]
             for reason_index, reason in enumerate(self.decision.reasons):
                 evidence = [
                     _evidence_dict(
@@ -89,7 +90,11 @@ class ProductGateReport:
                 ]
                 results.append(
                     {
-                        "ruleId": f"{reason.code}:{reason_index}",
+                        "ruleId": (
+                            reason.code
+                            if reason_codes.count(reason.code) == 1
+                            else f"{reason.code}:{reason_index}"
+                        ),
                         "level": level,
                         "message": {"text": reason.message},
                         "properties": {

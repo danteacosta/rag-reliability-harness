@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from collections import Counter
 from dataclasses import dataclass, field
 from typing import Any, Mapping, Sequence
 
@@ -80,11 +81,23 @@ class ProductGateReport:
         level = _sarif_level(self.decision)
         if level is not None:
             reason_codes = [reason.code for reason in self.decision.reasons]
+            evidence_bases = [
+                f"{reason.code}:{_evidence_subject(item)}"
+                for reason in self.decision.reasons
+                for item in reason.evidence
+            ]
+            evidence_counts = Counter(evidence_bases)
             for reason_index, reason in enumerate(self.decision.reasons):
                 evidence = [
                     _evidence_dict(
                         item,
-                        evidence_id=f"{reason.code}:{reason_index}:{evidence_index}:{_evidence_subject(item)}",
+                        evidence_id=(
+                            f"{reason.code}:{_evidence_subject(item)}"
+                            if evidence_counts[
+                                f"{reason.code}:{_evidence_subject(item)}"
+                            ] == 1
+                            else f"{reason.code}:{reason_index}:{evidence_index}:{_evidence_subject(item)}"
+                        ),
                     )
                     for evidence_index, item in enumerate(reason.evidence)
                 ]

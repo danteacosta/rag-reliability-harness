@@ -114,6 +114,15 @@ python -m product --manifest runs/<run_id>/manifest.json \
 object, so consumers do not need to import the harness's former local gate or
 manifest classes.
 
+To exercise the product contract without a corpus or provider, run the
+deterministic demo. It writes approve, warn, and block reports in both JSON and
+SARIF, plus a summary. These synthetic fixtures are product smoke evidence,
+not thesis observations:
+
+```bash
+python -m product --demo-output runs/product-demo
+```
+
 ## Attribution & optional adapters
 
 - FastAPI-style docs under `data/corpus/fastapi/` are original paraphrases — see [`data/ATTRIBUTION.md`](data/ATTRIBUTION.md).

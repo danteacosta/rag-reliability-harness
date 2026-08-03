@@ -8,17 +8,34 @@ from pathlib import Path
 from product.report import ProductGateReport
 from product.codes import PRODUCT_EXIT_CONTRACT
 from product.arp_adapter import read_arp_events, read_arp_manifest
+from product.demo import write_demo
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Render a shared ARP run as a product gate report.")
-    parser.add_argument("--manifest", type=Path, required=True)
+    parser.add_argument("--manifest", type=Path)
     parser.add_argument("--events", type=Path)
     parser.add_argument("--metrics", type=Path)
     parser.add_argument("--rag", type=Path, help="Optional opaque RAG adapter payload JSON.")
     parser.add_argument("--format", choices=("json", "sarif"), default="json")
     parser.add_argument("--output", type=Path)
+    parser.add_argument("--demo-output", type=Path, help="Write deterministic approve/warn/block demo artifacts.")
     args = parser.parse_args(argv)
+
+    if args.demo_output:
+        if args.manifest:
+            print("contract error: --demo-output cannot be combined with --manifest", file=sys.stderr)
+            return PRODUCT_EXIT_CONTRACT
+        try:
+            write_demo(args.demo_output)
+        except (OSError, ValueError, TypeError, KeyError, json.JSONDecodeError) as exc:
+            print(f"contract error: {exc}", file=sys.stderr)
+            return PRODUCT_EXIT_CONTRACT
+        return 0
+
+    if not args.manifest:
+        print("contract error: --manifest or --demo-output is required", file=sys.stderr)
+        return PRODUCT_EXIT_CONTRACT
 
     try:
         manifest = read_arp_manifest(args.manifest)

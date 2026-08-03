@@ -1,0 +1,42 @@
+# Product reliability gate
+
+The product surface is a CI adapter over the neutral ARP 2.0.5 manifest and
+lifecycle contracts. It does not consume thesis labels or alter scientific
+estimands.
+
+## Contract
+
+| Decision | Process code | SARIF level |
+| --- | ---: | --- |
+| approve | 0 | note |
+| warn | 10 | warning |
+| block | 20 | error |
+| invalid ARP envelope | 30 | error |
+
+Hard failures take precedence over soft warnings. Reason and evidence IDs are
+stable so CI annotations can be reconciled across reruns. RAG metrics remain
+under the `metrics`/`rag` namespaces and are operational diagnostics.
+
+## Smoke demo
+
+```bash
+python -m product --demo-output runs/product-demo
+```
+
+The command produces `approve.json`, `warn.json`, and `block.json`, their SARIF
+counterparts, and `summary.json`. The data is synthetic and only verifies the
+adapter contract; it must never be included in thesis analysis.
+
+## Live reports
+
+```bash
+python -m product \
+  --manifest runs/<run_id>/manifest.json \
+  --events runs/<run_id>/events.jsonl \
+  --metrics runs/<run_id>/metrics.json \
+  --format sarif \
+  --output runs/<run_id>/report.sarif
+```
+
+Invalid manifests, malformed event streams, run-ID mismatches, and lifecycle
+ordering failures return code 30.

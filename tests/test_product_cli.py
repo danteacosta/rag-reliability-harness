@@ -31,3 +31,18 @@ def test_product_cli_returns_contract_error_code_for_invalid_manifest(tmp_path: 
     manifest_path.write_text("{\"schema_version\": \"not-semver\"}", encoding="utf-8")
 
     assert main(["--manifest", str(manifest_path)]) == 30
+
+
+def test_product_cli_demo_writes_all_decisions_as_json_and_sarif(tmp_path: Path) -> None:
+    output_dir = tmp_path / "product-demo"
+
+    assert main(["--demo-output", str(output_dir)]) == 0
+
+    summary = json.loads((output_dir / "summary.json").read_text(encoding="utf-8"))
+    assert summary["decisions"] == {"approve": 0, "warn": 10, "block": 20}
+    for decision in ("approve", "warn", "block"):
+        report = json.loads((output_dir / f"{decision}.json").read_text(encoding="utf-8"))
+        sarif = json.loads((output_dir / f"{decision}.sarif").read_text(encoding="utf-8"))
+        assert report["decision"]["decision"] == decision
+        assert sarif["version"] == "2.1.0"
+        assert sarif["runs"][0]["automationDetails"]["id"] == f"product-demo-{decision}"

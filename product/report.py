@@ -7,7 +7,17 @@ from collections import Counter
 from dataclasses import dataclass, field
 from typing import Any, Mapping, Sequence
 
-from agent_reliability_protocol import GateDecision, LifecycleEvent, RunManifest, validate_thesis_envelope
+from agent_reliability_protocol import GateDecision, LifecycleEvent, RunManifest
+
+try:
+    from agent_reliability_protocol import validate_thesis_envelope
+except ImportError:  # ARP 2.0.5 exposes the primitives but not this convenience helper.
+    def validate_thesis_envelope(manifest: RunManifest, events: Sequence[LifecycleEvent]) -> None:
+        if any(event.run_id != manifest.run_id for event in events):
+            raise ValueError("lifecycle event run_id does not match manifest")
+        sequences = [getattr(event, "sequence_number", None) for event in events]
+        if all(sequence is not None for sequence in sequences) and sequences != list(range(sequences[0], sequences[0] + len(sequences))):
+            raise ValueError("lifecycle event sequence is not contiguous")
 
 from product.codes import product_exit_code
 

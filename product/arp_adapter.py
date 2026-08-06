@@ -12,8 +12,19 @@ from agent_reliability_protocol import (
     GateDecision,
     LifecycleEvent,
     RunManifest,
-    validate_lifecycle_sequence,
 )
+
+try:
+    from agent_reliability_protocol import validate_lifecycle_sequence
+except ImportError:  # ARP 2.0.5 keeps sequence validation in the consumer boundary.
+    def validate_lifecycle_sequence(events: list[LifecycleEvent]) -> None:
+        if not events:
+            return
+        for previous, current in zip(events, events[1:]):
+            if current.run_id != previous.run_id:
+                raise ValueError("lifecycle events must share run_id")
+            if current.sequence_number != previous.sequence_number + 1:
+                raise ValueError("sequence_number must be contiguous")
 
 ARP_SCHEMA_VERSION = "2.0.5"
 
@@ -29,6 +40,7 @@ _CHECKPOINTS = {
     "gate.decided": "gate.decided",
     "alert.emitted": "tool.completed",
     "semantic_lint.completed": "tool.completed",
+    "memory_candidates.ingested": "tool.completed",
     "run.completed": "episode.completed",
 }
 

@@ -46,3 +46,17 @@ def test_product_cli_demo_writes_all_decisions_as_json_and_sarif(tmp_path: Path)
         assert report["decision"]["decision"] == decision
         assert sarif["version"] == "2.1.0"
         assert sarif["runs"][0]["automationDetails"]["id"] == f"product-demo-{decision}"
+
+
+def test_product_cli_ingests_session_handoff_as_candidate_memory(tmp_path: Path) -> None:
+    handoff = tmp_path / "handoff.json"
+    store = tmp_path / "candidates.jsonl"
+    handoff.write_text(json.dumps({
+        "session_id_hash": "session-1",
+        "handoff": {"decision": "target Acme", "next_step": "follow up"},
+    }), encoding="utf-8")
+    assert main([
+        "--ingest-handoff", str(handoff), "--user-id", "user-1", "--candidate-store", str(store),
+    ]) == 0
+    rows = [json.loads(line) for line in store.read_text(encoding="utf-8").splitlines()]
+    assert {row["category"] for row in rows} == {"decision", "next_step"}

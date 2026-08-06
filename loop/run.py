@@ -32,6 +32,7 @@ from gates.run import (
 from ingest.pipeline import ingest_corpus, load_fingerprint, load_index
 from loop.alert import emit_alert
 from loop.ownership import owners_for_reasons
+from observability.session_quality import lint_run_events
 from product.arp_adapter import ArpV2EventLog, build_arp_manifest
 from product.codes import product_exit_code
 from product.gate import decide_product_gate
@@ -262,6 +263,15 @@ def run_closed_loop(
     metrics.update(online_stats)
     event_log.emit("retrieval.completed", {"operation": "evaluation"})
     event_log.emit("generation.completed", {"operation": "evaluation"})
+    semantic_lint_findings = lint_run_events(
+        run_id,
+        [event.attributes for event in event_log.events],
+    )
+    semantic_lint_payload = {
+        "finding_count": len(semantic_lint_findings),
+        "findings": [finding.__dict__ for finding in semantic_lint_findings],
+    }
+    event_log.emit("semantic_lint.completed", semantic_lint_payload)
 
     # Persist enriched metrics for gate + status.
     Path(metrics_path).write_text(
@@ -331,6 +341,7 @@ def run_closed_loop(
         "reasons": reasons,
         "owners": owners,
         "owner_assignments": [assignment.to_dict() for assignment in owner_assignments],
+        "semantic_lint": semantic_lint_payload,
         "online_n": metrics.get("online_n", 0),
         "metrics": {
             k: metrics.get(k)
@@ -381,6 +392,7 @@ def run_closed_loop(
         "reasons": reasons,
         "owners": owners,
         "owner_assignments": [assignment.to_dict() for assignment in owner_assignments],
+        "semantic_lint": semantic_lint_payload,
         "status_path": str(status_file),
         "manifest_path": str(manifest_path) if manifest_path else None,
     }

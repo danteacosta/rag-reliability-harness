@@ -36,6 +36,7 @@ from observability.session_quality import lint_run_events
 from product.arp_adapter import ArpV2EventLog, build_arp_manifest
 from product.codes import product_exit_code
 from product.gate import decide_product_gate
+from product_memory import CandidateMemoryStore, ingest_session_handoff
 from retrieval.retriever import DEFAULT_K, HarnessRetriever
 from retrieval.adapters import ExtractiveGeneratorAdapter, HarnessRetrievalAdapter
 
@@ -209,6 +210,9 @@ def run_closed_loop(
     mutable_version: str = DEFAULT_MUTABLE_VERSION,
     webhook_url: str | None = None,
     force_reingest: bool = False,
+    candidate_store_path: Path | str | None = None,
+    session_handoff: dict[str, Any] | None = None,
+    user_id: str | None = None,
 ) -> dict[str, Any]:
     """Run detect → reingest → eval (+ online sample) → gate → alert."""
     started_at = datetime.now(timezone.utc).isoformat()
@@ -272,6 +276,15 @@ def run_closed_loop(
         "findings": [finding.__dict__ for finding in semantic_lint_findings],
     }
     event_log.emit("semantic_lint.completed", semantic_lint_payload)
+
+    memory_candidates: list[dict[str, Any]] = []
+    if session_handoff is not None:
+        if not candidate_store_path or not user_id:
+            raise ValueError("session_handoff requires candidate_store_path and user_id")
+        memory_candidates = ingest_session_handoff(
+            CandidateMemoryStore(candidate_store_path), user_id=user_id, session=session_handoff,
+        )
+        event_log.emit("memory_candidates.ingested", {"count": len(memory_candidates)})
 
     # Persist enriched metrics for gate + status.
     Path(metrics_path).write_text(
@@ -342,6 +355,7 @@ def run_closed_loop(
         "owners": owners,
         "owner_assignments": [assignment.to_dict() for assignment in owner_assignments],
         "semantic_lint": semantic_lint_payload,
+        "memory_candidates": {"count": len(memory_candidates)},
         "online_n": metrics.get("online_n", 0),
         "metrics": {
             k: metrics.get(k)
@@ -393,6 +407,7 @@ def run_closed_loop(
         "owners": owners,
         "owner_assignments": [assignment.to_dict() for assignment in owner_assignments],
         "semantic_lint": semantic_lint_payload,
+        "memory_candidates": {"count": len(memory_candidates)},
         "status_path": str(status_file),
         "manifest_path": str(manifest_path) if manifest_path else None,
     }

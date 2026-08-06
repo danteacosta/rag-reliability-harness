@@ -9,6 +9,8 @@ from product.report import ProductGateReport
 from product.codes import PRODUCT_EXIT_CONTRACT
 from product.arp_adapter import read_arp_events, read_arp_manifest
 from product.demo import write_demo
+from product_memory.candidates import CandidateMemoryStore
+from product_memory.ingress import ingest_session_handoff
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -20,7 +22,25 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--format", choices=("json", "sarif"), default="json")
     parser.add_argument("--output", type=Path)
     parser.add_argument("--demo-output", type=Path, help="Write deterministic approve/warn/block demo artifacts.")
+    parser.add_argument("--ingest-handoff", type=Path, help="Ingest a provider session handoff into candidate memory.")
+    parser.add_argument("--user-id", help="Hashed user identifier for --ingest-handoff.")
+    parser.add_argument("--candidate-store", type=Path, help="Candidate memory JSONL path for --ingest-handoff.")
     args = parser.parse_args(argv)
+
+    if args.ingest_handoff:
+        if not args.user_id or not args.candidate_store:
+            print("contract error: --ingest-handoff requires --user-id and --candidate-store", file=sys.stderr)
+            return PRODUCT_EXIT_CONTRACT
+        try:
+            session = json.loads(args.ingest_handoff.read_text(encoding="utf-8"))
+            records = ingest_session_handoff(
+                CandidateMemoryStore(args.candidate_store), user_id=args.user_id, session=session,
+            )
+        except (OSError, ValueError, TypeError, json.JSONDecodeError) as exc:
+            print(f"contract error: {exc}", file=sys.stderr)
+            return PRODUCT_EXIT_CONTRACT
+        print(json.dumps({"schema_version": "candidate-memory-ingress/v1", "count": len(records)}, ensure_ascii=True))
+        return 0
 
     if args.demo_output:
         if args.manifest:

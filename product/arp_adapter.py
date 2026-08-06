@@ -28,6 +28,7 @@ _CHECKPOINTS = {
     "generation.completed": "artifact.completed",
     "gate.decided": "gate.decided",
     "alert.emitted": "tool.completed",
+    "semantic_lint.completed": "tool.completed",
     "run.completed": "episode.completed",
 }
 
@@ -42,6 +43,7 @@ class ArpV2EventLog:
         self.episode_id = episode_id or run_id
         self._sequence = 0
         self._last_event_id: str | None = None
+        self.events: list[LifecycleEvent] = []
 
     def emit(self, event_type: str, data: Mapping[str, Any] | None = None, *, parent_event_id: str | None = None) -> LifecycleEvent:
         try:
@@ -51,6 +53,7 @@ class ArpV2EventLog:
         now = datetime.now(timezone.utc).isoformat()
         attributes = dict(data or {})
         attributes["rag_event_type"] = event_type
+        attributes.setdefault("source_refs", [{"kind": "run", "identifier": self.run_id}])
         event = LifecycleEvent(
             event_id=str(uuid.uuid4()),
             schema_version=ARP_SCHEMA_VERSION,
@@ -71,6 +74,7 @@ class ArpV2EventLog:
             handle.write(json.dumps(event.to_dict(), ensure_ascii=True) + "\n")
         self._sequence += 1
         self._last_event_id = event.event_id
+        self.events.append(event)
         return event
 
 

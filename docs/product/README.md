@@ -40,3 +40,9 @@ python -m product \
 
 Invalid manifests, malformed event streams, run-ID mismatches, and lifecycle
 ordering failures return code 30.
+
+## Candidate memory and semantic QA
+
+Product memory is an append-only candidate stream, not a replacement for the RAG corpus store. Every candidate carries source references and confidence. It remains `candidate` until a reviewer explicitly accepts or rejects it; acceptance requires a reviewer identity. The post-run semantic linter reports missing provenance and secret-like fields as structured findings. These product artifacts are not exported into the thesis label plane.
+
+Retrieval is selective and typed: `CandidateMemoryStore.retrieve()` considers only the latest `accepted` record for a candidate, optionally scopes by user and category, and uses bounded lexical matching. Raw transcripts are not embedded or added to the corpus vector store. The closed loop records semantic-lint findings in its status and lifecycle event stream without changing the gate decision.

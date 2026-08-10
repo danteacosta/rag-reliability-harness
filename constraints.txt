@@ -1,0 +1,6 @@
+# Runtime/development pins used by the offline RAG harness CI.
+agent-reliability-protocol @ git+https://github.com/danteacosta/agent-reliability-protocol.git@v2.0.6
+numpy==2.5.2
+PyYAML==6.0.3
+langchain-core==1.5.3
+pytest==9.1.1

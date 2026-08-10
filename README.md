@@ -81,9 +81,13 @@ Done is defined by caller-visible acceptance tests:
 
 ```bash
 python -m venv .venv && source .venv/bin/activate
-pip install -e ".[dev]"
+pip install -c constraints.txt -e ".[dev]"
 make all
 ```
+
+For an offline replay after dependency acquisition (or with a local
+wheelhouse), use `pip install --no-index --find-links ./wheelhouse -c
+constraints.txt -e .`.
 
 Useful targets: `make test`, `make ingest`, `make eval`, `make gate`, `make simulate`, `make loop`.
 

@@ -1,5 +1,11 @@
 # RAG Reliability Harness
 
+Licensed under Apache-2.0. See [LICENSE](LICENSE), [CONTRIBUTING](CONTRIBUTING.md),
+and [SECURITY](SECURITY.md). This harness consumes observability/evaluation
+traces; the sibling ASD replay gate adds constraint-preservation evidence for
+agent requirements before pre-merge. Its ARP dependency remains pinned to
+[v2.0.6](https://github.com/danteacosta/agent-reliability-protocol/releases/tag/v2.0.6).
+
 Offline-first RAG reliability loop: detect corpus drift → re-ingest → eval (golden + traffic sample) → gate → alert with ownership — no API keys required.
 
 ![eval-gate](https://github.com/danteacosta/rag-reliability-harness/actions/workflows/eval.yml/badge.svg)

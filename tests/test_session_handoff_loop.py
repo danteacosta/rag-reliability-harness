@@ -24,4 +24,5 @@ def test_closed_loop_can_ingest_a_real_session_handoff(tmp_path: Path) -> None:
         },
     )
     assert result["memory_candidates"]["count"] == 2
+    assert "semantic_evidence" in result
     assert "memory_candidates.ingested" in (tmp_path / "runs" / result["manifest"]["run_id"] / "events.jsonl").read_text()

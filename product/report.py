@@ -123,6 +123,7 @@ class ProductGateReport:
                         "properties": {
                             "runId": self.manifest.run_id,
                             "evidence": evidence,
+                            "semanticEvidence": _semantic_evidence(self.rag),
                         },
                     }
                 )
@@ -132,7 +133,10 @@ class ProductGateReport:
                     "ruleId": "gate.approved",
                     "level": "note",
                     "message": {"text": "RAG reliability gate approved"},
-                    "properties": {"runId": self.manifest.run_id},
+                    "properties": {
+                        "runId": self.manifest.run_id,
+                        "semanticEvidence": _semantic_evidence(self.rag),
+                    },
                 }
             )
         return {
@@ -179,3 +183,26 @@ def _evidence_dict(evidence: Any, *, evidence_id: str) -> dict[str, Any]:
         payload.setdefault("observed", payload["observed_value"])
     payload.setdefault("evidence_id", evidence_id)
     return payload
+
+
+def _semantic_evidence(rag: Mapping[str, Any]) -> list[dict[str, Any]]:
+    """Expose bounded pre-final evidence in CI without changing ARP reasons."""
+
+    rows = rag.get("semantic_evidence") if isinstance(rag, Mapping) else None
+    if not isinstance(rows, Sequence) or isinstance(rows, (str, bytes)):
+        return []
+    result: list[dict[str, Any]] = []
+    for row in rows:
+        if not isinstance(row, Mapping):
+            continue
+        if not {"constraint", "checkpoint", "confidence", "recommended_action"} <= set(row):
+            continue
+        result.append(
+            {
+                "constraint": str(row["constraint"]),
+                "checkpoint": str(row["checkpoint"]),
+                "confidence": float(row["confidence"]),
+                "recommended_action": str(row["recommended_action"]),
+            }
+        )
+    return result

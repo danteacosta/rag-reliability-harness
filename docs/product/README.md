@@ -59,3 +59,14 @@ append locking, and an audit record. Deletion appends a tombstone and never
 silently removes the history needed to explain a previous retrieval. The
 semantic-lint worker is versioned and fails closed when its ruleset is unknown
 or stale.
+
+For CI consumers, reports may include bounded semantic evidence under
+rag.semantic_evidence. Each finding identifies the threatened constraint,
+pre-final checkpoint, confidence, and recommended review action; the SARIF
+adapter exposes the same fields as semanticEvidence. Utility summaries report
+captured regressions, escaped incidents, false alerts, lead time, review
+latency, and cost per captured regression.
+
+Candidate retrieval can be evaluated offline with
+product_memory.evaluation.evaluate_retrieval against a reviewed golden case
+set. This is a product metric and never enters thesis labels or estimands.

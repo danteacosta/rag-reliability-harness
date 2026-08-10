@@ -103,6 +103,40 @@ def test_product_report_maps_warn_to_sarif_warning_and_approve_to_note() -> None
     assert note_result["level"] == "note"
 
 
+def test_product_report_surfaces_actionable_semantic_evidence_in_sarif() -> None:
+    reason = DecisionReason(
+        "semantic_constraint_risk",
+        "pre-final constraint preservation risk",
+        (Evidence("semantic", "constraint-preservation", 0.8, 0.5, ">="),),
+    )
+    report = ProductGateReport.from_run(
+        _manifest(
+            GateDecision(
+                decision="block",
+                reasons=(reason,),
+                checkpoint="gate.decided",
+                threshold_version="ci-v1",
+            )
+        ),
+        [],
+        metrics={},
+        rag={
+            "semantic_evidence": [
+                {
+                    "constraint": "refund deadline",
+                    "checkpoint": "interpretation.completed",
+                    "confidence": 0.8,
+                    "recommended_action": "review generated acceptance criteria",
+                }
+            ]
+        },
+    )
+
+    result = report.to_sarif()["runs"][0]["results"][0]
+    assert result["properties"]["semanticEvidence"][0]["checkpoint"] == "interpretation.completed"
+    assert result["properties"]["semanticEvidence"][0]["recommended_action"]
+
+
 def test_product_report_rejects_events_from_another_run() -> None:
     manifest = _manifest(GateDecision(decision="approve", checkpoint="gate.decided", threshold_version="ci-v1"))
     event = LifecycleEvent(

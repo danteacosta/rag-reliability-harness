@@ -16,3 +16,19 @@ def test_utility_summary_reports_alert_rate_lead_time_and_review_latency():
     assert summary["miss_rate"] == pytest.approx(0.3333333333333333)
     assert summary["lead_time_ms_median"] == 150.0
     assert summary["review_latency_ms_p95"] == 143.0
+    assert summary["captured_regressions"] == 1
+    assert summary["escaped_incidents"] == 1
+    assert summary["cost_usd_total"] == pytest.approx(0.0)
+
+
+def test_utility_summary_reports_cost_and_capture_efficiency():
+    summary = summarize_utility(
+        [
+            {"run_id": "r1", "alerted": True, "true_incident": True, "cost_usd": 0.01},
+            {"run_id": "r2", "alerted": True, "true_incident": False, "cost_usd": 0.02},
+        ]
+    )
+    assert summary["captured_regressions"] == 1
+    assert summary["escaped_incidents"] == 0
+    assert summary["cost_usd_total"] == pytest.approx(0.03)
+    assert summary["cost_usd_per_captured_regression"] == pytest.approx(0.03)

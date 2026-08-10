@@ -275,6 +275,15 @@ def run_closed_loop(
         "finding_count": len(semantic_lint_findings),
         "findings": [finding.__dict__ for finding in semantic_lint_findings],
     }
+    semantic_evidence = [
+        {
+            "constraint": finding.code,
+            "checkpoint": "semantic_lint.completed",
+            "confidence": 0.9 if finding.severity == "error" else 0.6,
+            "recommended_action": finding.message,
+        }
+        for finding in semantic_lint_findings
+    ]
     event_log.emit("semantic_lint.completed", semantic_lint_payload)
 
     memory_candidates: list[dict[str, Any]] = []
@@ -355,6 +364,7 @@ def run_closed_loop(
         "owners": owners,
         "owner_assignments": [assignment.to_dict() for assignment in owner_assignments],
         "semantic_lint": semantic_lint_payload,
+        "semantic_evidence": semantic_evidence,
         "memory_candidates": {"count": len(memory_candidates)},
         "online_n": metrics.get("online_n", 0),
         "metrics": {
@@ -407,6 +417,7 @@ def run_closed_loop(
         "owners": owners,
         "owner_assignments": [assignment.to_dict() for assignment in owner_assignments],
         "semantic_lint": semantic_lint_payload,
+        "semantic_evidence": semantic_evidence,
         "memory_candidates": {"count": len(memory_candidates)},
         "status_path": str(status_file),
         "manifest_path": str(manifest_path) if manifest_path else None,

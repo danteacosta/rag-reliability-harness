@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import math
 from collections import Counter
 from dataclasses import dataclass, field
 from typing import Any, Mapping, Sequence
@@ -197,11 +198,17 @@ def _semantic_evidence(rag: Mapping[str, Any]) -> list[dict[str, Any]]:
             continue
         if not {"constraint", "checkpoint", "confidence", "recommended_action"} <= set(row):
             continue
+        try:
+            confidence = float(row["confidence"])
+        except (TypeError, ValueError):
+            continue
+        if not math.isfinite(confidence) or not 0.0 <= confidence <= 1.0:
+            continue
         result.append(
             {
                 "constraint": str(row["constraint"]),
                 "checkpoint": str(row["checkpoint"]),
-                "confidence": float(row["confidence"]),
+                "confidence": confidence,
                 "recommended_action": str(row["recommended_action"]),
             }
         )

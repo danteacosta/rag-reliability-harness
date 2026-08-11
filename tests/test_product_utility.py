@@ -32,3 +32,16 @@ def test_utility_summary_reports_cost_and_capture_efficiency():
     assert summary["escaped_incidents"] == 0
     assert summary["cost_usd_total"] == pytest.approx(0.03)
     assert summary["cost_usd_per_captured_regression"] == pytest.approx(0.03)
+
+
+@pytest.mark.parametrize(
+    "row",
+    [
+        {"alerted": 1, "true_incident": False},
+        {"alerted": False, "true_incident": False, "cost_usd": -1},
+        {"alerted": False, "true_incident": False, "review_latency_ms": float("nan")},
+    ],
+)
+def test_utility_rejects_malformed_observations(row):
+    with pytest.raises(ValueError):
+        summarize_utility([row])

@@ -85,6 +85,10 @@ pip install -c constraints.txt -e ".[dev]"
 make all
 ```
 
+The Make targets select `.venv/bin/python` automatically; automation can make
+the interpreter explicit with `PYTHON=.venv/bin/python make all` and does not
+require a globally installed `pytest` executable.
+
 For an offline replay after dependency acquisition (or with a local
 wheelhouse), use `pip install --no-index --find-links ./wheelhouse -c
 constraints.txt -e .`.

@@ -3,11 +3,32 @@
 from __future__ import annotations
 
 from statistics import median
+import math
 from typing import Any, Iterable
+
+
+def _number(value: Any, field: str) -> float:
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) or value < 0:
+        raise ValueError(f"{field} must be a finite non-negative number")
+    return float(value)
+
+
+def _validate_row(row: dict[str, Any]) -> None:
+    if not isinstance(row, dict):
+        raise ValueError("utility observations must be objects")
+    for field in ("alerted", "true_incident"):
+        if type(row.get(field)) is not bool:
+            raise ValueError(f"{field} must be a boolean")
+    _number(row.get("cost_usd", 0.0) or 0.0, "cost_usd")
+    for field in ("lead_time_ms", "review_latency_ms"):
+        if row.get(field) is not None:
+            _number(row[field], field)
 
 
 def summarize_utility(observations: Iterable[dict[str, Any]]) -> dict[str, Any]:
     rows = list(observations)
+    for row in rows:
+        _validate_row(row)
     runs = len(rows)
     if not runs:
         return {

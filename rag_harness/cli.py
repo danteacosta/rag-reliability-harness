@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from loop.run import run_closed_loop
-from protocol_next.replay import replay_manifest
+from rag_harness.lifecycle.replay import replay_manifest
 
 
 def _check(args: argparse.Namespace) -> int:

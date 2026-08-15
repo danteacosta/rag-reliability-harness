@@ -3,8 +3,9 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from protocol_next import GateDecision, RunManifest, replay_manifest
-from protocol_next.__main__ import main
+from agent_reliability_protocol import GateDecision, RunManifest
+from rag_harness.lifecycle import replay_manifest
+from rag_harness.lifecycle.cli import main
 
 
 def test_replay_manifest_validates_decision_and_lifecycle_stream(tmp_path: Path) -> None:

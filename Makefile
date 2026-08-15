@@ -1,6 +1,6 @@
 .PHONY: test ingest eval gate simulate loop all
 
-PYTHON := $(shell if [ -x .venv/bin/python ]; then echo .venv/bin/python; else echo python3; fi)
+PYTHON ?= $(shell if [ -x .venv/bin/python ]; then echo .venv/bin/python; else echo python3; fi)
 
 test:
 	$(PYTHON) -m pytest -q

@@ -13,7 +13,7 @@ from gates.run import check_gate, load_baseline
 from ingest.pipeline import ingest_corpus, load_fingerprint
 from loop.alert import load_last_alert
 from loop.ownership import owners_for_failures, owners_for_reasons
-from protocol_next import DecisionReason, Evidence
+from agent_reliability_protocol import DecisionReason, Evidence
 from loop.run import classify_drift, run_closed_loop
 
 ROOT = Path(__file__).resolve().parents[1]

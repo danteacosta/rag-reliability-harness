@@ -8,7 +8,7 @@ import pytest
 from agent_reliability_protocol import LifecycleEvent, RunManifest
 from loop.run import run_closed_loop
 from product.arp_adapter import read_arp_events, read_arp_manifest
-from protocol_next.replay import replay_manifest
+from rag_harness.lifecycle.replay import replay_manifest
 
 
 ROOT = Path(__file__).resolve().parents[1]

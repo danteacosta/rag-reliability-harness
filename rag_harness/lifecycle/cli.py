@@ -4,11 +4,11 @@ import argparse
 import json
 from pathlib import Path
 
-from protocol_next.replay import replay_manifest
+from rag_harness.lifecycle.replay import replay_manifest
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Check or replay a protocol-next manifest.")
+    parser = argparse.ArgumentParser(description="Check or replay a RAG/ARP manifest.")
     subcommands = parser.add_subparsers(dest="command", required=True)
     for command in ("check", "replay"):
         child = subcommands.add_parser(command)

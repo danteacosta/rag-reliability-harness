@@ -18,3 +18,10 @@ def test_product_docs_state_thesis_isolation() -> None:
     docs = (ROOT / "docs" / "product" / "README.md").read_text(encoding="utf-8")
     assert "not exported into the thesis label plane" in docs
     assert "synthetic" in docs
+
+
+def test_repository_uses_arp_without_a_local_protocol_copy() -> None:
+    assert not (ROOT / "protocol_next").exists()
+    for directory in (ROOT / "rag_harness", ROOT / "loop", ROOT / "product"):
+        for path in directory.rglob("*.py"):
+            assert "protocol_next" not in path.read_text(encoding="utf-8"), path

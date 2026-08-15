@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from protocol_next import EventLog, LifecycleEvent, collect_lifecycle_events
+from rag_harness.lifecycle import EventLog, LifecycleEvent, collect_lifecycle_events
 
 
 def test_event_log_emits_replayable_lifecycle_events(tmp_path: Path) -> None:

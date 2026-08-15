@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any, Iterable
 
 from loop.ownership import OwnerAssignment
-from protocol_next import DecisionReason
+from agent_reliability_protocol import DecisionReason
 
 
 def emit_alert(

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from protocol_next import DecisionReason, Evidence, GateDecision, RunManifest
+from agent_reliability_protocol import DecisionReason, Evidence, GateDecision, RunManifest
 
 
 def test_gate_decision_keeps_structured_reason_and_evidence() -> None:

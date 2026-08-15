@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 
 import agent_reliability_protocol
-from protocol_next import (
+from agent_reliability_protocol import (
     GateDecision,
     LifecycleEvent,
     RunManifest,
@@ -14,7 +14,7 @@ from protocol_next import (
 )
 
 
-FIXTURES = Path(__file__).resolve().parents[1] / "protocol_next" / "fixtures" / "v1"
+FIXTURES = Path(__file__).resolve().parent / "fixtures" / "arp_v1"
 
 
 def test_portable_fixtures_round_trip_against_neutral_contracts() -> None:

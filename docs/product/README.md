@@ -1,7 +1,9 @@
 # Product reliability gate
 
-The product surface is a CI adapter over the neutral ARP 2.0.5 manifest and
-lifecycle contracts. It does not consume thesis labels or alter scientific
+The product surface uses the hardened ARP 3.0.0 package through its explicit
+ARP 2.0.5 wire-compatibility layer. RAG-local lifecycle replay lives under
+`rag_harness.lifecycle`; there is no repository-owned copy of the neutral
+protocol. The product does not consume thesis labels or alter scientific
 estimands.
 
 ## Contract

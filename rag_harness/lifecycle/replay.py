@@ -1,15 +1,18 @@
-"""Manifest validation and lifecycle replay without domain dependencies."""
+"""Manifest validation and lifecycle replay without protocol duplication."""
 
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any
 
 from agent_reliability_protocol import GateDecision, RunManifest as SharedRunManifest
 from product.arp_adapter import read_arp_events
+from rag_harness.lifecycle.events import collect_lifecycle_events
 from rag_harness.reliability import RunManifest as RagRunManifest
-from protocol_next.events import collect_lifecycle_events
+
+_SEMVER = re.compile(r"^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$")
 
 
 def replay_manifest(path: Path | str, *, reexecute: bool = False) -> dict[str, Any]:
@@ -17,14 +20,23 @@ def replay_manifest(path: Path | str, *, reexecute: bool = False) -> dict[str, A
     payload = json.loads(Path(path).read_text(encoding="utf-8"))
     if "manifest" in payload:
         payload = payload["manifest"]
-    is_arp_manifest = payload.get("schema_version") == "2.0.5" and "experiment_id" in payload
-    is_rag_manifest = payload.get("rag_schema_version") == "rag-reliability/v1" or payload.get("schema_version") == "rag-reliability/v1"
+    is_rag_manifest = (
+        payload.get("rag_schema_version") == "rag-reliability/v1"
+        or payload.get("schema_version") == "rag-reliability/v1"
+    )
+    is_arp_manifest = (
+        not is_rag_manifest
+        and bool(_SEMVER.fullmatch(str(payload.get("schema_version", ""))))
+        and "experiment_id" in payload
+    )
     if is_arp_manifest and isinstance(payload.get("decision"), dict):
         payload["decision"] = GateDecision.from_dict(payload["decision"])
     manifest = (
         SharedRunManifest.from_dict(payload)
         if is_arp_manifest
-        else RagRunManifest.from_dict(payload) if is_rag_manifest else SharedRunManifest.from_dict(payload)
+        else RagRunManifest.from_dict(payload)
+        if is_rag_manifest
+        else SharedRunManifest.from_dict(payload)
     )
     manifest_root = Path(path).parent
     events_path = manifest.artifacts.get("events")
@@ -33,7 +45,9 @@ def replay_manifest(path: Path | str, *, reexecute: bool = False) -> dict[str, A
     events = (
         read_arp_events(events_path, run_id=manifest.run_id)
         if events_path and is_arp_manifest
-        else collect_lifecycle_events(events_path, run_id=manifest.run_id) if events_path else []
+        else collect_lifecycle_events(events_path, run_id=manifest.run_id)
+        if events_path
+        else []
     )
     if events:
         _validate_lifecycle(events, manifest)
@@ -48,25 +62,37 @@ def replay_manifest(path: Path | str, *, reexecute: bool = False) -> dict[str, A
         from loop.run import run_closed_loop
 
         config = manifest.configuration.get("rag", manifest.configuration)
+
         def resolve(name: str) -> str:
             candidate = Path(str(config[name]))
             return str(candidate if candidate.is_absolute() else manifest_root / candidate)
+
         result = run_closed_loop(
-            corpus_root=resolve("corpus_root"), golden_path=resolve("golden_path"), online_path=resolve("online_path"),
-            thresholds_path=resolve("thresholds_path"), baseline_path=resolve("baseline_path"),
-            runs_root=Path(path).parent / "replays", force_reingest=True,
+            corpus_root=resolve("corpus_root"),
+            golden_path=resolve("golden_path"),
+            online_path=resolve("online_path"),
+            thresholds_path=resolve("thresholds_path"),
+            baseline_path=resolve("baseline_path"),
+            runs_root=Path(path).parent / "replays",
+            force_reingest=True,
         )
-        report["reexecution"] = {"run_id": result["manifest"]["run_id"], "decision": result["decision"]["decision"]}
+        report["reexecution"] = {
+            "run_id": result["manifest"]["run_id"],
+            "decision": result["decision"]["decision"],
+        }
     return report
 
 
 def _validate_lifecycle(events: list[Any], manifest: Any) -> None:
     event_types = [event.type for event in events]
-    is_arp = (
-        not isinstance(manifest, RagRunManifest)
-        and str(getattr(manifest, "schema_version", "")) not in {"arp/v1", "protocol_next/v1"}
+    is_arp = not isinstance(manifest, RagRunManifest) and str(
+        getattr(manifest, "schema_version", "")
+    ) not in {"arp/v1"}
+    required = (
+        ["episode.started", "gate.decided", "episode.completed"]
+        if is_arp
+        else ["run.started", "gate.decided", "run.completed"]
     )
-    required = ["episode.started", "gate.decided", "episode.completed"] if is_arp else ["run.started", "gate.decided", "run.completed"]
     if any(event_type not in event_types for event_type in required):
         raise ValueError("lifecycle stream is missing required events")
     if isinstance(manifest, RagRunManifest):
@@ -78,12 +104,13 @@ def _validate_lifecycle(events: list[Any], manifest: Any) -> None:
                 raise ValueError("RAG lifecycle parent must precede and reference an existing event")
             seen.add(event.event_id)
     gate = next(event for event in events if event.type == "gate.decided")
-    completed = next(event for event in reversed(events) if event.type == ("episode.completed" if is_arp else "run.completed"))
-    # Legacy lifecycle streams encode outcome=pass/fail; v2 streams encode
-    # decision=approve/warn/block. Compare like-for-like at the event boundary.
+    completed_type = "episode.completed" if is_arp else "run.completed"
+    completed = next(event for event in reversed(events) if event.type == completed_type)
     use_legacy_outcome = any("outcome" in event.data for event in (gate, completed))
     expected = manifest.decision.outcome if use_legacy_outcome else manifest.decision.decision
     actual_gate = gate.data.get("outcome") if use_legacy_outcome else gate.data.get("decision")
-    actual_completed = completed.data.get("outcome") if use_legacy_outcome else completed.data.get("decision")
+    actual_completed = (
+        completed.data.get("outcome") if use_legacy_outcome else completed.data.get("decision")
+    )
     if actual_gate != expected or actual_completed != expected:
         raise ValueError("lifecycle decision does not match manifest")

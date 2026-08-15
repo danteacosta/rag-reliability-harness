@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Iterable
 
-from protocol_next import DecisionReason, Evidence
+from agent_reliability_protocol import DecisionReason, Evidence
 
 
 @dataclass(frozen=True)

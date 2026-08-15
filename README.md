@@ -4,7 +4,7 @@ Licensed under Apache-2.0. See [LICENSE](LICENSE), [CONTRIBUTING](CONTRIBUTING.m
 and [SECURITY](SECURITY.md). This harness consumes observability/evaluation
 traces; the sibling ASD replay gate adds constraint-preservation evidence for
 agent requirements before pre-merge. Its ARP dependency remains pinned to
-[v2.0.6](https://github.com/danteacosta/agent-reliability-protocol/releases/tag/v2.0.6).
+[ARP 3.0.0 contract commit](https://github.com/danteacosta/agent-reliability-protocol/commit/95c93db4fd77f0363f5e6dc48f43798afc8eb4be).
 
 Offline-first RAG reliability loop: detect corpus drift → re-ingest → eval (golden + traffic sample) → gate → alert with ownership — no API keys required.
 
@@ -140,6 +140,6 @@ python -m product --demo-output runs/product-demo
 ## Attribution & optional adapters
 
 - FastAPI-style docs under `data/corpus/fastapi/` are original paraphrases — see [`data/ATTRIBUTION.md`](data/ATTRIBUTION.md).
-- **Optional pgvector:** `docker compose up -d`, set `DATABASE_URL` / `PGVECTOR_DSN` (see `.env.example`). Adapter raises `NotConfiguredError` without a DSN; CI uses the in-memory store.
+- **Optional pgvector:** `docker compose up -d`, install `.[pgvector]`, and set `DATABASE_URL` / `PGVECTOR_DSN` (see `.env.example`). The adapter creates its extension/table lazily, performs parameter-bound upserts and cosine search, and raises `NotConfiguredError` without a DSN or driver. CI exercises the SQL contract with an injected connection and uses the in-memory store for end-to-end evaluation.
 - **Optional Langfuse:** set `LANGFUSE_PUBLIC_KEY` + `LANGFUSE_SECRET_KEY`. Without keys the tracer no-ops and records local spans only.
 - **Optional alert webhook:** set `ALERT_WEBHOOK_URL` for `make loop`. On gate failure the loop always writes `loop/last_alert.json` with owners; webhook POST is best-effort.

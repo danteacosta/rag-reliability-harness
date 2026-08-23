@@ -2,6 +2,7 @@ name: eval-gate
 on:
   push:
   pull_request:
+  workflow_dispatch:
 jobs:
   eval:
     runs-on: ubuntu-latest

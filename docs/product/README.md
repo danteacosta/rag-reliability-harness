@@ -6,6 +6,12 @@ ARP 2.0.5 wire-compatibility layer. RAG-local lifecycle replay lives under
 protocol. The product does not consume thesis labels or alter scientific
 estimands.
 
+The current thesis primary comparison is fixed and nested (B0=static+
+operational; B1/B2/B3 add cumulative T1/T2/T3 provenance). This product layer
+does not fit, select, calibrate, or evaluate those models. Any RAG-derived
+semantic evidence remains product evidence even when carried in the same ARP
+envelope.
+
 ## Contract
 
 | Decision | Process code | SARIF level |

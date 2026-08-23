@@ -8,6 +8,15 @@ agent requirements before pre-merge. Its ARP dependency remains pinned to
 
 Offline-first RAG reliability loop: detect corpus drift → re-ingest → eval (golden + traffic sample) → gate → alert with ownership — no API keys required.
 
+## Research boundary
+
+This repository is an independent sister artifact, not the master's primary
+experimental harness. The thesis estimand and fixed B0–B3 comparison live in
+`agent-smell-degradation-harness`; RAG metrics, retrieval traces, candidate
+memory, semantic QA, and product smoke results MUST NOT be pooled into its
+confirmatory rows. Shared ARP envelopes provide interoperability only and do
+not make this repository scientific evidence for H1 or H2.
+
 ![eval-gate](https://github.com/danteacosta/rag-reliability-harness/actions/workflows/eval.yml/badge.svg)
 
 ## Flow

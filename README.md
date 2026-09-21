@@ -119,6 +119,19 @@ CI continues to use the extractive generator. `ReplayGenerator` reuses recorded
 answers, while `LLMGenerator` is optional and refuses safely unless a caller
 injects a provider callable.
 
+## Gate input integrity
+
+Configured floors and maximum-slip rules require finite JSON numbers for current
+metrics, baseline metrics and thresholds. NaN, infinity, booleans, numeric strings,
+malformed values and negative slip budgets block with source-specific reasons;
+they cannot produce a passing comparison. Missing measurements retain their
+existing missing-metric reasons. The CLI prints `GATE FAIL` and exits 1 for these
+invalid numerical inputs. Only metrics selected by a configured rule are checked.
+
+The gate distinguishes invalid evidence from an observed quality regression. Its
+numeric checks do not establish semantic validity or statistical significance.
+See the [contract and verification plan](docs/plans/2026-09-21-finite-gate-inputs.md).
+
 ## Product gate reports
 
 The product layer is a thin adapter over the shared

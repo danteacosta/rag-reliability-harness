@@ -75,12 +75,19 @@ def decide_gate(
     """Evaluate a gate using stable reason codes and structured evidence."""
     failures: list[GateReason] = []
 
-    if thresholds.get("require_drift_ok", False) and metrics.get("drift_ok") is not True:
+    require_drift = thresholds.get("require_drift_ok", False)
+    if not isinstance(require_drift, bool):
+        failures.append(GateReason(
+            "threshold.invalid", "infra", "require_drift_ok",
+            owner="infra", message="require_drift_ok must be a boolean",
+        ))
+    elif require_drift and metrics.get("drift_ok") is not True:
+        drift_value = metrics.get("drift_ok")
         failures.append(
-            GateReason("drift.required", "ingest", "drift_ok", metrics.get("drift_ok"), True, "ingest", "drift_ok required but metrics['drift_ok'] is not True")
+            GateReason("drift.required", "ingest", "drift_ok", drift_value if isinstance(drift_value, bool) else None, True, "ingest", "drift_ok required but metrics['drift_ok'] is not True")
         )
 
-    floors = thresholds.get("floors") or {}
+    floors = _validated_rules(thresholds, "floors", failures)
     for key, floor in floors.items():
         floor_number = _finite_number(floor)
         if floor_number is None:
@@ -103,7 +110,7 @@ def decide_gate(
                 GateReason("floor_not_met", _surface_for_metric(key), key, float(value), float(floor), _owner_for_metric(key), f"floor {key}: {float(value):.4f} < {float(floor):.4f}")
             )
 
-    max_slip = thresholds.get("max_slip") or {}
+    max_slip = _validated_rules(thresholds, "max_slip", failures)
     for key, slip_limit in max_slip.items():
         limit_number = _finite_number(slip_limit)
         if limit_number is None or limit_number < 0:
@@ -146,6 +153,19 @@ def decide_gate(
             )
 
     return GateDecision.approve() if not failures else GateDecision("block", tuple(failures), tuple(failures))
+
+
+def _validated_rules(
+    thresholds: dict[str, Any], section: str, failures: list[GateReason],
+) -> dict[str, Any]:
+    rules = thresholds.get(section, {})
+    if not isinstance(rules, dict) or any(not isinstance(key, str) or not key for key in rules):
+        failures.append(GateReason(
+            "threshold.invalid", "infra", section, owner="infra",
+            message=f"{section} must be a mapping with nonempty metric names",
+        ))
+        return {}
+    return rules
 
 
 def _finite_number(value: Any) -> float | None:

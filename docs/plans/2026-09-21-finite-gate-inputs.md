@@ -38,7 +38,7 @@ not selected by a configured rule are outside this validation contract.
 
 - Before implementation: 38 new failing cases, including a CLI `GATE PASS` on
   NaN. A separate overflow regression failed strict JSON serialization.
-- After implementation: 46 gate cases passed; full suite 153 passed, 1 skipped
+- After implementation: 79 gate cases passed; full suite 186 passed, 1 skipped
   (optional live pgvector test without a local DSN).
 - `PYTHON=/private/tmp/rag-quality-venv/bin/python make all simulate`: offline
   ingest, evaluation, healthy gate, closed loop, and all three injected-regression
@@ -46,3 +46,10 @@ not selected by a configured rule are outside this validation contract.
 - No configured linter or type-checker exists. Reviewed responsibilities,
   dependency boundaries, error handling and public-behavior tests; no provider
   calls, secrets, historical result rewrites or new architecture were introduced.
+
+Review also identified malformed rule sections silently disabling comparisons,
+and nonfinite drift evidence leaking into decisions. Regression tests reproduced
+21 boundary failures and four non-string rule-name crashes before extending the
+fix. Rules now require mappings with nonempty string names, and drift policy
+requires a boolean. Explicit empty mappings and omitted rules remain valid.
+Invalid drift values block without copying them into numeric evidence.

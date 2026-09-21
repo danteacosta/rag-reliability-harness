@@ -156,3 +156,37 @@ def test_gate_blocks_unrepresentable_slip_without_nonfinite_evidence():
     decision = decide_gate({"score": -1e308}, {"max_slip": {"score": 0.1}}, {"score": 1e308})
     assert decision.decision == "block"
     json.dumps(decision.to_dict(), allow_nan=False)
+
+
+@pytest.mark.parametrize("section", ["floors", "max_slip"])
+@pytest.mark.parametrize("invalid", [[], "", 0, False, None, [0.5], "mrr"])
+def test_gate_blocks_malformed_rule_sections(section, invalid):
+    decision = decide_gate({"mrr": 0.9}, {section: invalid}, {"mrr": 0.9})
+    assert decision.decision == "block"
+    assert decision.reasons[0].code == "threshold.invalid"
+
+
+@pytest.mark.parametrize("invalid", [float("nan"), float("inf"), "true", 1, {}, []])
+def test_invalid_drift_evidence_is_strict_json(invalid):
+    import json
+
+    decision = decide_gate({"drift_ok": invalid}, {"require_drift_ok": True}, {})
+    assert decision.decision == "block"
+    json.dumps(decision.to_dict(), allow_nan=False)
+
+
+@pytest.mark.parametrize("invalid", ["false", "", 0, None, [], {}])
+def test_drift_requirement_must_be_boolean(invalid):
+    assert decide_gate({}, {"require_drift_ok": invalid}, {}).decision == "block"
+
+
+def test_empty_numeric_rule_mappings_remain_intentional():
+    assert decide_gate({}, {"floors": {}, "max_slip": {}, "require_drift_ok": False}, {}).decision == "approve"
+
+
+@pytest.mark.parametrize("key", [1, None, ""])
+@pytest.mark.parametrize("section", ["floors", "max_slip"])
+def test_gate_rejects_rule_names_that_are_not_metric_names(section, key):
+    decision = decide_gate({}, {section: {key: 0.1}}, {})
+    assert decision.decision == "block"
+    assert decision.reasons[0].code == "threshold.invalid"

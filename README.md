@@ -127,6 +127,9 @@ malformed values and negative slip budgets block with source-specific reasons;
 they cannot produce a passing comparison. Missing measurements retain their
 existing missing-metric reasons. The CLI prints `GATE FAIL` and exits 1 for these
 invalid numerical inputs. Only metrics selected by a configured rule are checked.
+Rule sections must be mappings with nonempty metric names, and
+`require_drift_ok` must be a boolean. Omitted rules and empty mappings remain
+intentional ways to select no numeric comparisons.
 
 The gate distinguishes invalid evidence from an observed quality regression. Its
 numeric checks do not establish semantic validity or statistical significance.

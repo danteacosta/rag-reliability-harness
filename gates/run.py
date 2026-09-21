@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import math
 from pathlib import Path
 from typing import Any
 
@@ -74,26 +75,48 @@ def decide_gate(
     """Evaluate a gate using stable reason codes and structured evidence."""
     failures: list[GateReason] = []
 
-    if thresholds.get("require_drift_ok", False) and metrics.get("drift_ok") is not True:
+    require_drift = thresholds.get("require_drift_ok", False)
+    if not isinstance(require_drift, bool):
+        failures.append(GateReason(
+            "threshold.invalid", "infra", "require_drift_ok",
+            owner="infra", message="require_drift_ok must be a boolean",
+        ))
+    elif require_drift and metrics.get("drift_ok") is not True:
+        drift_value = metrics.get("drift_ok")
         failures.append(
-            GateReason("drift.required", "ingest", "drift_ok", metrics.get("drift_ok"), True, "ingest", "drift_ok required but metrics['drift_ok'] is not True")
+            GateReason("drift.required", "ingest", "drift_ok", drift_value if isinstance(drift_value, bool) else None, True, "ingest", "drift_ok required but metrics['drift_ok'] is not True")
         )
 
-    floors = thresholds.get("floors") or {}
+    floors = _validated_rules(thresholds, "floors", failures)
     for key, floor in floors.items():
+        floor_number = _finite_number(floor)
+        if floor_number is None:
+            failures.append(_invalid_number_reason("threshold.invalid", key, "floor"))
+            continue
+        floor = floor_number
         value = metrics.get(key)
         if value is None:
             failures.append(
                 GateReason("metric.missing", _surface_for_metric(key), key, None, float(floor), _owner_for_metric(key), f"floor {key}: missing metric")
             )
             continue
-        if float(value) < float(floor):
+        value_number = _finite_number(value)
+        if value_number is None:
+            failures.append(_invalid_number_reason("metric.invalid", key, "current metric"))
+            continue
+        value = value_number
+        if value < floor:
             failures.append(
                 GateReason("floor_not_met", _surface_for_metric(key), key, float(value), float(floor), _owner_for_metric(key), f"floor {key}: {float(value):.4f} < {float(floor):.4f}")
             )
 
-    max_slip = thresholds.get("max_slip") or {}
+    max_slip = _validated_rules(thresholds, "max_slip", failures)
     for key, slip_limit in max_slip.items():
+        limit_number = _finite_number(slip_limit)
+        if limit_number is None or limit_number < 0:
+            failures.append(_invalid_number_reason("threshold.invalid", key, "max_slip", nonnegative=True))
+            continue
+        slip_limit = limit_number
         current = metrics.get(key)
         base = baseline.get(key)
         if current is None:
@@ -106,8 +129,20 @@ def decide_gate(
                 GateReason("baseline.metric_missing", _surface_for_metric(key), key, None, float(slip_limit), _owner_for_metric(key), f"slip {key}: missing baseline metric")
             )
             continue
-        slip = float(base) - float(current)
-        if slip > float(slip_limit):
+        current_number = _finite_number(current)
+        base_number = _finite_number(base)
+        if current_number is None:
+            failures.append(_invalid_number_reason("metric.invalid", key, "current metric"))
+        if base_number is None:
+            failures.append(_invalid_number_reason("baseline.metric_invalid", key, "baseline metric"))
+        if current_number is None or base_number is None:
+            continue
+        current, base = current_number, base_number
+        slip = base - current
+        if not math.isfinite(slip):
+            failures.append(_invalid_number_reason("metric.comparison_invalid", key, "computed slip"))
+            continue
+        if slip > slip_limit:
             failures.append(
                 GateReason(
                     "baseline_slip_exceeded", _surface_for_metric(key), key, slip, float(slip_limit), _owner_for_metric(key), (
@@ -118,6 +153,41 @@ def decide_gate(
             )
 
     return GateDecision.approve() if not failures else GateDecision("block", tuple(failures), tuple(failures))
+
+
+def _validated_rules(
+    thresholds: dict[str, Any], section: str, failures: list[GateReason],
+) -> dict[str, Any]:
+    rules = thresholds.get(section, {})
+    if not isinstance(rules, dict) or any(not isinstance(key, str) or not key for key in rules):
+        failures.append(GateReason(
+            "threshold.invalid", "infra", section, owner="infra",
+            message=f"{section} must be a mapping with nonempty metric names",
+        ))
+        return {}
+    return rules
+
+
+def _finite_number(value: Any) -> float | None:
+    """Accept JSON numbers only, without coercing labels or booleans."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    try:
+        number = float(value)
+    except OverflowError:
+        return None
+    return number if math.isfinite(number) else None
+
+
+def _invalid_number_reason(
+    code: str, metric: str, source: str, *, nonnegative: bool = False,
+) -> GateReason:
+    constraint = "a finite nonnegative number" if nonnegative else "a finite number"
+    return GateReason(
+        code=code, surface=_surface_for_metric(metric), metric=metric,
+        owner=_owner_for_metric(metric),
+        message=f"{source} {metric}: must be {constraint} (booleans and strings are not measurements)",
+    )
 
 
 def _surface_for_metric(metric: str) -> str:

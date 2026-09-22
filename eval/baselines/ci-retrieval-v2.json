@@ -1,0 +1,20 @@
+{
+  "metric_contract": "retrieval-set-v2",
+  "recall@5": 1.0,
+  "precision@5": 0.2,
+  "mrr": 0.8805555555555555,
+  "groundedness": 1.0,
+  "refusal_accuracy": 1.0,
+  "drift_ok": true,
+  "_provenance": {
+    "purpose": "Deterministic CI fixture re-evaluation, not a research effect",
+    "source_revision": "949b219c1eb81f0756a2dceba88d1f8a51fb1def",
+    "evaluation_sha256": "6cc1c8429c2c96ae469003a96d47415a21024256ef8d54bdc947e62f8588130b",
+    "fingerprint": "c8f5cd20d7b3ab43cfaf382b8f3b3194",
+    "n_items": 40,
+    "legacy_preserved": "eval/baselines/ci.json",
+    "metric_source_sha256": "43ecbce44dba58e4b582d7a9226c31d4160dacb7304e29bf9ed94172cfa4ae6f",
+    "golden_sha256": "058279d6393b9c47c8de9c9231257d4e7159b71a74acc67d1332bbd23cec7c9b",
+    "reproduction": "python -m ingest --mutable-version v2; python -m eval --output NEW_FILE.json (latency values vary)"
+  }
+}

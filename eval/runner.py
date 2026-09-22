@@ -12,6 +12,7 @@ from retrieval.adapters import ExtractiveGeneratorAdapter, HarnessRetrievalAdapt
 from retrieval.retriever import DEFAULT_K, HarnessRetriever
 
 from eval.metrics import (
+    METRIC_CONTRACT,
     aggregate_retrieval_metrics,
     citation_correctness,
     context_precision,
@@ -136,6 +137,7 @@ def run_eval(
 
     metrics: dict[str, Any] = {
         **retrieval,
+        "metric_contract": METRIC_CONTRACT,
         "groundedness": mean_groundedness,
         "refusal_accuracy": refusal,
         **refusal_precision_recall(per_item),

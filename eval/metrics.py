@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import math
 import re
 from typing import Any, Iterable
 
 from retrieval.generate import REFUSAL
+
+METRIC_CONTRACT = "retrieval-set-v2"
 
 _TOKEN_RE = re.compile(r"[a-z0-9]+", re.IGNORECASE)
 
@@ -12,8 +15,8 @@ def recall_at_k(retrieved: list[str], relevant: list[str], *, k: int) -> float:
     if not relevant or k <= 0:
         return 0.0
     top = set(retrieved[:k])
-    hits = sum(1 for r in relevant if r in top)
-    return hits / min(k, len(relevant))
+    relevant_set = set(relevant)
+    return len(top & relevant_set) / len(relevant_set)
 
 
 def precision_at_k(retrieved: list[str], relevant: list[str], *, k: int) -> float:
@@ -23,7 +26,7 @@ def precision_at_k(retrieved: list[str], relevant: list[str], *, k: int) -> floa
     if not top:
         return 0.0
     relevant_set = set(relevant)
-    hits = sum(1 for item in top if item in relevant_set)
+    hits = len(set(top) & relevant_set)
     return hits / k
 
 
@@ -40,8 +43,13 @@ def ndcg_at_k(retrieved: list[str], relevant: list[str], *, k: int) -> float:
     if not relevant or k <= 0:
         return 0.0
     relevant_set = set(relevant)
-    dcg = sum((1.0 / __import__("math").log2(rank + 1)) for rank, item in enumerate(retrieved[:k], 1) if item in relevant_set)
-    ideal = sum(1.0 / __import__("math").log2(rank + 1) for rank in range(1, min(k, len(relevant_set)) + 1))
+    credited = set()
+    dcg = 0.0
+    for rank, item in enumerate(retrieved[:k], 1):
+        if item in relevant_set and item not in credited:
+            dcg += 1.0 / math.log2(rank + 1)
+            credited.add(item)
+    ideal = sum(1.0 / math.log2(rank + 1) for rank in range(1, min(k, len(relevant_set)) + 1))
     return dcg / ideal if ideal else 0.0
 
 

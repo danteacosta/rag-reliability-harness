@@ -15,6 +15,7 @@ from retrieval.generate import generate_answer
 from retrieval.retriever import DEFAULT_K, HarnessRetriever
 
 from eval.metrics import (
+    METRIC_CONTRACT,
     aggregate_retrieval_metrics,
     drift_ok,
     groundedness,
@@ -130,6 +131,7 @@ def simulate_all(
             before_caught = before_ok is False
             after_caught = after_ok is False
             out[name] = {
+                "metric_contract": METRIC_CONTRACT,
                 "before_catch_rate": 1.0 if before_caught else 0.0,
                 "after_catch_rate": 1.0 if after_caught else 0.0,
                 "gate_failures": after_failures,
@@ -211,6 +213,7 @@ def _run_sabotaged_eval(
 
     return {
         **retrieval,
+        "metric_contract": METRIC_CONTRACT,
         "groundedness": mean_groundedness,
         "refusal_accuracy": refusal,
         "fingerprint_active": fingerprint_active,

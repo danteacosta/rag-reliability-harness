@@ -111,7 +111,7 @@ metrics, status and any alert) and can validate plus re-execute that artifact:
 
 ```bash
 rag-reliability check --corpus ./data/corpus --golden ./data/golden/set.jsonl \
-  --baseline ./eval/baselines/ci.json --output ./runs
+  --baseline ./eval/baselines/ci-retrieval-v2.json --output ./runs
 rag-reliability replay --manifest runs/<run_id>/manifest.json
 ```
 
@@ -168,3 +168,30 @@ python -m product --demo-output runs/product-demo
 - **Optional pgvector:** `docker compose up -d`, install `.[pgvector]`, and set `DATABASE_URL` / `PGVECTOR_DSN` (see `.env.example`). The adapter creates its extension/table lazily, performs parameter-bound upserts and cosine search, and raises `NotConfiguredError` without a DSN or driver. CI exercises the SQL contract with an injected connection and uses the in-memory store for end-to-end evaluation.
 - **Optional Langfuse:** set `LANGFUSE_PUBLIC_KEY` + `LANGFUSE_SECRET_KEY`. Without keys the tracer no-ops and records local spans only.
 - **Optional alert webhook:** set `ALERT_WEBHOOK_URL` for `make loop`. On gate failure the loop always writes `loop/last_alert.json` with owners; webhook POST is best-effort.
+
+
+### Retrieval metric contract
+
+New evaluation artifacts identify `metric_contract: retrieval-set-v2`.
+Recall divides distinct relevant hits in the first k slots by **all distinct
+relevant IDs**. Precision divides those hits by k. Binary nDCG credits each
+relevant ID only at its first original rank; duplicates consume slots without
+extra credit. MRR retains the first relevant original rank.
+
+The earlier recall denominator was capped at k; repeated IDs could inflate
+recall and nDCG beyond1. Historical unversioned outputs retain that legacy
+definition and must not be interpreted as v2 or compared as evidence of quality
+improvement. Re-evaluate saved rankings into a separate artifact when available;
+aggregate scores alone cannot reconstruct corrected metrics.
+
+The default CI baseline is now `eval/baselines/ci-retrieval-v2.json`, generated
+from the separate40-item deterministic evaluation saved alongside it. The
+original `eval/baselines/ci.json` remains unchanged. On this fixture, all relevant
+sets have one ID, so baseline values did not change. This is a fixture migration,
+not a research result or validation of thresholds. Existing operational floors
+remain unchanged. The gate rejects cross-contract baseline comparisons and
+unknown contracts; two unversioned legacy artifacts remain compatible. Baseline
+extraction preserves the contract marker. See
+[the migration contract](docs/plans/2026-09-22-retrieval-metrics.md).
+
+Threshold provenance in `eval/thresholds.yaml` records the historical10-item calibration; it is not relabeled as the current40-item evaluation. Revalidation of scientific decision thresholds remains separate.

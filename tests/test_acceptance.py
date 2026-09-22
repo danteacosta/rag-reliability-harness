@@ -45,6 +45,7 @@ def test_at1_happy_path_gate_passes_offline(happy_index: Path, tmp_path: Path) -
         corpus_root=CORPUS,
         output_path=out,
     )
+    assert metrics["metric_contract"] == "retrieval-set-v2"
     assert metrics["drift_ok"] is True
     assert metrics["refusal_accuracy"] >= 0.9
     assert metrics["recall@5"] >= 0.7

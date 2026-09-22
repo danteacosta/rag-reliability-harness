@@ -15,7 +15,7 @@ ROOT = Path(__file__).resolve().parents[1]
 CORPUS = ROOT / "data" / "corpus"
 GOLDEN = ROOT / "data" / "golden" / "set.jsonl"
 THRESHOLDS = ROOT / "eval" / "thresholds.yaml"
-BASELINE = ROOT / "eval" / "baselines" / "ci.json"
+BASELINE = ROOT / "eval" / "baselines" / "ci-retrieval-v2.json"
 ONLINE = ROOT / "data" / "online" / "traffic_sample.jsonl"
 
 

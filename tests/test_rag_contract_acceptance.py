@@ -61,7 +61,7 @@ def test_at_rag_cli_writes_and_reexecutes_standalone_artifact(tmp_path: Path) ->
     runs = tmp_path / "runs"
     assert main([
         "check", "--corpus", str(ROOT / "data" / "corpus"), "--golden", str(ROOT / "data" / "golden" / "set.jsonl"),
-        "--baseline", str(ROOT / "eval" / "baselines" / "ci.json"), "--output", str(runs),
+        "--baseline", str(ROOT / "eval" / "baselines" / "ci-retrieval-v2.json"), "--output", str(runs),
     ]) == 0
     manifest = next(runs.glob("*/manifest.json"))
     moved_run = tmp_path / "moved-run"

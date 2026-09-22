@@ -190,3 +190,30 @@ def test_gate_rejects_rule_names_that_are_not_metric_names(section, key):
     decision = decide_gate({}, {section: {key: 0.1}}, {})
     assert decision.decision == "block"
     assert decision.reasons[0].code == "threshold.invalid"
+
+
+@pytest.mark.parametrize('current,base', [('retrieval-set-v2', None), (None, 'retrieval-set-v2'), ('retrieval-set-v2', 'legacy-v1'), ('other', 'other')])
+def test_gate_blocks_incompatible_or_unknown_metric_contracts(current, base):
+    metrics = {'mrr': 1.0}
+    baseline = {'mrr': 1.0}
+    if current is not None:
+        metrics['metric_contract'] = current
+    if base is not None:
+        baseline['metric_contract'] = base
+    decision = decide_gate(metrics, {'max_slip': {'mrr': 0.1}}, baseline)
+    assert decision.outcome == 'fail'
+    assert any(reason.code == 'metric.contract_incompatible' for reason in decision.reasons)
+
+
+def test_baseline_extraction_preserves_metric_contract():
+    from gates.run import metrics_for_baseline
+    metrics = {'mrr': 1.0, 'metric_contract': 'retrieval-set-v2'}
+    assert metrics_for_baseline(metrics) == metrics
+
+
+def test_legacy_baseline_is_preserved_but_incompatible_with_v2():
+    legacy = load_baseline('eval/baselines/ci.json')
+    current = load_baseline()
+    assert 'metric_contract' not in legacy
+    decision = decide_gate(current, load_thresholds(), legacy)
+    assert any(reason.code == 'metric.contract_incompatible' for reason in decision.reasons)

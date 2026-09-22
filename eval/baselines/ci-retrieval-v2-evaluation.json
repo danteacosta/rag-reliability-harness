@@ -1,0 +1,699 @@
+{
+  "recall@5": 1.0,
+  "precision@5": 0.2,
+  "mrr": 0.8805555555555555,
+  "ndcg": 0.9103312482685322,
+  "context_precision": 0.2,
+  "context_recall": 1.0,
+  "metric_contract": "retrieval-set-v2",
+  "groundedness": 1.0,
+  "refusal_accuracy": 1.0,
+  "refusal_precision": 1.0,
+  "refusal_recall": 1.0,
+  "citation_correctness": 1.0,
+  "freshness": 1.0,
+  "cost": 0.0,
+  "latency_p50_ms": 0.13741650036536157,
+  "latency_p95_ms": 0.25222470321750723,
+  "fingerprint_active": "c8f5cd20d7b3ab43cfaf382b8f3b3194",
+  "fingerprint_expected": "c8f5cd20d7b3ab43cfaf382b8f3b3194",
+  "drift_ok": true,
+  "k": 5,
+  "n_items": 40,
+  "n_retrieval_items": 36,
+  "n_refusal_items": 4,
+  "items": [
+    {
+      "id": "q001",
+      "question": "How does FastAPI bind HTTP methods to Python functions?",
+      "relevant_chunk_ids": [
+        "fastapi.routing.01"
+      ],
+      "retrieved": [
+        "fastapi.routing.01",
+        "fastapi.path_parameters.03",
+        "fastapi.routing.04",
+        "fastapi.dependencies.03",
+        "fastapi.dependencies.04"
+      ],
+      "answer": "# Routing\n\nFastAPI binds HTTP methods and URL paths to Python callables with decorator-based route declarations on an application or router instance. ## Type conversion\n\nAnnotate path parameters with Python types such as `int` or `UUID`. FastAPI validates and converts the path segment before calling your function, returning a validation error when conversion fails.",
+      "groundedness": 1.0,
+      "failure_mode": "none"
+    },
+    {
+      "id": "q002",
+      "question": "Which decorators register GET and POST handlers?",
+      "relevant_chunk_ids": [
+        "fastapi.routing.02"
+      ],
+      "retrieved": [
+        "fastapi.routing.02",
+        "fastapi.security.04",
+        "fastapi.settings.01",
+        "fastapi.middleware.04",
+        "fastapi.security.03"
+      ],
+      "answer": "## Declaring routes\n\nUse decorators such as `@app.get`, `@app.post`, `@app.put`, and `@app.delete` to register handlers. Each decorator takes a path string and optionally response model metadata. ## Scopes\n\nOAuth2 scopes express fine-grained permissions. Declare required scopes on the security dependency so unauthorized callers receive a 403 instead of reaching protected handlers.",
+      "groundedness": 1.0,
+      "failure_mode": "none"
+    },
+    {
+      "id": "q003",
+      "question": "How do you group related endpoints with a shared prefix?",
+      "relevant_chunk_ids": [
+        "fastapi.routing.03"
+      ],
+      "retrieved": [
+        "fastapi.routing.03",
+        "fastapi.security.04",
+        "fastapi.security.03",
+        "fastapi.dependencies.01",
+        "fastapi.dependencies.02"
+      ],
+      "answer": "## APIRouter\n\nGroup related endpoints with `APIRouter`, then mount the router on the main app with `include_router`. Prefixes and tags applied on the router apply to every route it owns. ## Scopes\n\nOAuth2 scopes express fine-grained permissions. Declare required scopes on the security dependency so unauthorized callers receive a 403 instead of reaching protected handlers.",
+      "groundedness": 1.0,
+      "failure_mode": "none"
+    },
+    {
+      "id": "q004",
+      "question": "Why does path operation registration order matter?",
+      "relevant_chunk_ids": [
+        "fastapi.routing.04"
+      ],
+      "retrieved": [
+        "fastapi.routing.04",
+        "fastapi.path_parameters.01",
+        "fastapi.path_parameters.03",
+        "fastapi.cors.02",
+        "mutable.config.01"
+      ],
+      "answer": "## Path operation order\n\nMore specific paths should be declared before catch-all patterns. FastAPI matches routes in registration order, so a static path can be shadowed by an earlier parameterized route. # Path parameters\n\nPath parameters capture dynamic segments of the URL and pass them into the path operation function as typed arguments.",
+      "groundedness": 1.0,
+      "failure_mode": "none"
+    },
+    {
+      "id": "q005",
+      "question": "What do path parameters capture in a URL?",
+      "relevant_chunk_ids": [
+        "fastapi.path_parameters.01"
+      ],
+      "retrieved": [
+        "fastapi.path_parameters.01",
+        "fastapi.path_parameters.02",
+        "fastapi.path_parameters.03",
+        "fastapi.routing.04",
+        "fastapi.dependencies.02"
+      ],
+      "answer": "# Path parameters\n\nPath parameters capture dynamic segments of the URL and pass them into the path operation function as typed arguments. ## Curly brace syntax\n\nDeclare a path parameter by wrapping its name in curly braces inside the route path, for example `/items/{item_id}`. The function parameter name must match the brace name.",
+      "groundedness": 1.0,
+      "failure_mode": "none"
+    },
+    {
+      "id": "q006",
+      "question": "How do you declare a path parameter in a route path?",
+      "relevant_chunk_ids": [
+        "fastapi.path_parameters.02"
+      ],
+      "retrieved": [
+        "fastapi.path_parameters.01",
+        "fastapi.path_parameters.02",
+        "fastapi.routing.01",
+        "fastapi.dependencies.02",
+        "fastapi.path_parameters.03"
+      ],
+      "answer": "# Path parameters\n\nPath parameters capture dynamic segments of the URL and pass them into the path operation function as typed arguments. ## Curly brace syntax\n\nDeclare a path parameter by wrapping its name in curly braces inside the route path, for example `/items/{item_id}`. The function parameter name must match the brace name.",
+      "groundedness": 1.0,
+      "failure_mode": "none"
+    },
+    {
+      "id": "q007",
+      "question": "What happens when you annotate a path parameter as int?",
+      "relevant_chunk_ids": [
+        "fastapi.path_parameters.03"
+      ],
+      "retrieved": [
+        "fastapi.path_parameters.03",
+        "fastapi.path_parameters.02",
+        "fastapi.security.02",
+        "fastapi.path_parameters.01",
+        "fastapi.middleware.01"
+      ],
+      "answer": "## Type conversion\n\nAnnotate path parameters with Python types such as `int` or `UUID`. FastAPI validates and converts the path segment before calling your function, returning a validation error when conversion fails. ## Curly brace syntax\n\nDeclare a path parameter by wrapping its name in curly braces inside the route path, for example `/items/{item_id}`. The function parameter name must match the brace name.",
+      "groundedness": 1.0,
+      "failure_mode": "none"
+    },
+    {
+      "id": "q008",
+      "question": "How can you constrain path parameter values?",
+      "relevant_chunk_ids": [
+        "fastapi.path_parameters.04"
+      ],
+      "retrieved": [
+        "fastapi.path_parameters.01",
+        "fastapi.path_parameters.02",
+        "fastapi.routing.04",
+        "fastapi.path_parameters.03",
+        "fastapi.path_parameters.04"
+      ],
+      "answer": "# Path parameters\n\nPath parameters capture dynamic segments of the URL and pass them into the path operation function as typed arguments. ## Curly brace syntax\n\nDeclare a path parameter by wrapping its name in curly braces inside the route path, for example `/items/{item_id}`. The function parameter name must match the brace name.",
+      "groundedness": 1.0,
+      "failure_mode": "none"
+    },
+    {
+      "id": "q009",
+      "question": "What problem do FastAPI dependencies solve?",
+      "relevant_chunk_ids": [
+        "fastapi.dependencies.01"
+      ],
+      "retrieved": [
+        "fastapi.dependencies.02",
+        "fastapi.dependencies.04",
+        "fastapi.dependencies.03",
+        "fastapi.dependencies.01",
+        "fastapi.background_tasks.03"
+      ],
+      "answer": "## Depends\n\nDeclare a dependency with `Depends(callable)`. FastAPI resolves the callable (and its own nested dependencies) before invoking the path operation, then injects the result. ## Class-based dependencies\n\nA class with a `__call__` method can act as a dependency. Instance state configured at construction time is available each time FastAPI invokes the class for a request.",
+      "groundedness": 1.0,
+      "failure_mode": "none"
+    },
+    {
+      "id": "q010",
+      "question": "How do you declare a dependency with Depends?",
+      "relevant_chunk_ids": [
+        "fastapi.dependencies.02"
+      ],
+      "retrieved": [
+        "fastapi.dependencies.02",
+        "fastapi.dependencies.03",
+        "fastapi.dependencies.01",
+        "fastapi.settings.04",
+        "fastapi.security.04"
+      ],
+      "answer": "## Depends\n\nDeclare a dependency with `Depends(callable)`. FastAPI resolves the callable (and its own nested dependencies) before invoking the path operation, then injects the result. ## Sub-dependencies\n\nDependency functions may themselves declare `Depends(...)` parameters. The framework builds a dependency tree and caches results for the duration of a single request when appropriate.",
+      "groundedness": 1.0,
+      "failure_mode": "none"
+    },
+    {
+      "id": "q011",
+      "question": "Can dependency functions declare their own Depends parameters?",
+      "relevant_chunk_ids": [
+        "fastapi.dependencies.03"
+      ],
+      "retrieved": [
+        "fastapi.dependencies.03",
+        "fastapi.dependencies.02",
+        "fastapi.settings.04",
+        "fastapi.dependencies.01",
+        "fastapi.dependencies.04"
+      ],
+      "answer": "## Sub-dependencies\n\nDependency functions may themselves declare `Depends(...)` parameters. The framework builds a dependency tree and caches results for the duration of a single request when appropriate. ## Depends\n\nDeclare a dependency with `Depends(callable)`. FastAPI resolves the callable (and its own nested dependencies) before invoking the path operation, then injects the result.",
+      "groundedness": 1.0,
+      "failure_mode": "none"
+    },
+    {
+      "id": "q012",
+      "question": "How can a class act as a FastAPI dependency?",
+      "relevant_chunk_ids": [
+        "fastapi.dependencies.04"
+      ],
+      "retrieved": [
+        "fastapi.dependencies.04",
+        "fastapi.dependencies.02",
+        "fastapi.dependencies.03",
+        "fastapi.settings.02",
+        "fastapi.security.02"
+      ],
+      "answer": "## Class-based dependencies\n\nA class with a `__call__` method can act as a dependency. Instance state configured at construction time is available each time FastAPI invokes the class for a request. ## Depends\n\nDeclare a dependency with `Depends(callable)`. FastAPI resolves the callable (and its own nested dependencies) before invoking the path operation, then injects the result.",
+      "groundedness": 1.0,
+      "failure_mode": "none"
+    },
+    {
+      "id": "q013",
+      "question": "What security utilities does FastAPI provide for authentication?",
+      "relevant_chunk_ids": [
+        "fastapi.security.01"
+      ],
+      "retrieved": [
+        "fastapi.security.01",
+        "fastapi.dependencies.03",
+        "fastapi.dependencies.04",
+        "fastapi.cors.04",
+        "fastapi.middleware.04"
+      ],
+      "answer": "# Security and OAuth2\n\nFastAPI ships security utilities for common authentication flows, including OAuth2 password and bearer schemes. ## Sub-dependencies\n\nDependency functions may themselves declare `Depends(...)` parameters. The framework builds a dependency tree and caches results for the duration of a single request when appropriate.",
+      "groundedness": 1.0,
+      "failure_mode": "none"
+    },
+    {
+      "id": "q014",
+      "question": "What does OAuth2PasswordBearer expect?",
+      "relevant_chunk_ids": [
+        "fastapi.security.02"
+      ],
+      "retrieved": [
+        "fastapi.security.02",
+        "fastapi.security.01",
+        "fastapi.security.03",
+        "fastapi.security.04",
+        "fastapi.middleware.04"
+      ],
+      "answer": "## OAuth2 password flow\n\n`OAuth2PasswordBearer` expects a token URL where clients exchange username and password for an access token. Protect routes by declaring the bearer scheme as a dependency. # Security and OAuth2\n\nFastAPI ships security utilities for common authentication flows, including OAuth2 password and bearer schemes.",
+      "groundedness": 1.0,
+      "failure_mode": "none"
+    },
+    {
+      "id": "q015",
+      "question": "How do clients send bearer tokens to protected routes?",
+      "relevant_chunk_ids": [
+        "fastapi.security.03"
+      ],
+      "retrieved": [
+        "fastapi.security.03",
+        "fastapi.security.02",
+        "fastapi.security.04",
+        "fastapi.background_tasks.03",
+        "mutable.config.01"
+      ],
+      "answer": "## Bearer tokens\n\nClients send `Authorization: Bearer <token>` on subsequent requests. Your dependency extracts the token string; you verify it and load the current user before the path operation runs. ## OAuth2 password flow\n\n`OAuth2PasswordBearer` expects a token URL where clients exchange username and password for an access token. Protect routes by declaring the bearer scheme as a dependency.",
+      "groundedness": 1.0,
+      "failure_mode": "none"
+    },
+    {
+      "id": "q016",
+      "question": "What are OAuth2 scopes used for?",
+      "relevant_chunk_ids": [
+        "fastapi.security.04"
+      ],
+      "retrieved": [
+        "fastapi.security.04",
+        "fastapi.background_tasks.04",
+        "fastapi.background_tasks.03",
+        "fastapi.middleware.02",
+        "fastapi.security.02"
+      ],
+      "answer": "## Scopes\n\nOAuth2 scopes express fine-grained permissions. Declare required scopes on the security dependency so unauthorized callers receive a 403 instead of reaching protected handlers. ## Error handling\n\nExceptions inside background tasks are logged by the server but do not change the HTTP status already sent to the client. Design tasks to be idempotent when retries are possible.",
+      "groundedness": 1.0,
+      "failure_mode": "none"
+    },
+    {
+      "id": "q017",
+      "question": "What does middleware wrap in a FastAPI app?",
+      "relevant_chunk_ids": [
+        "fastapi.middleware.01"
+      ],
+      "retrieved": [
+        "fastapi.middleware.02",
+        "fastapi.cors.02",
+        "fastapi.routing.04",
+        "fastapi.middleware.01",
+        "fastapi.path_parameters.04"
+      ],
+      "answer": "## Adding middleware\n\nRegister middleware with `@app.middleware(\"http\")` or `app.add_middleware(...)`. The middleware function receives the request and a `call_next` callable that continues the stack. ## CORSMiddleware\n\nEnable CORS by adding Starlette's `CORSMiddleware` to the FastAPI application. Configure allowed origins, methods, and headers at registration time.",
+      "groundedness": 1.0,
+      "failure_mode": "none"
+    },
+    {
+      "id": "q018",
+      "question": "How do you register HTTP middleware?",
+      "relevant_chunk_ids": [
+        "fastapi.middleware.02"
+      ],
+      "retrieved": [
+        "fastapi.middleware.02",
+        "fastapi.middleware.01",
+        "fastapi.middleware.04",
+        "fastapi.routing.02",
+        "fastapi.dependencies.01"
+      ],
+      "answer": "## Adding middleware\n\nRegister middleware with `@app.middleware(\"http\")` or `app.add_middleware(...)`. The middleware function receives the request and a `call_next` callable that continues the stack. # Middleware\n\nMiddleware wraps every request and response, letting you run cross-cutting logic before and after path operations.",
+      "groundedness": 1.0,
+      "failure_mode": "none"
+    },
+    {
+      "id": "q019",
+      "question": "How can middleware measure request timing?",
+      "relevant_chunk_ids": [
+        "fastapi.middleware.03"
+      ],
+      "retrieved": [
+        "fastapi.middleware.02",
+        "fastapi.middleware.03",
+        "fastapi.middleware.01",
+        "fastapi.cors.04",
+        "mutable.config.02"
+      ],
+      "answer": "## Adding middleware\n\nRegister middleware with `@app.middleware(\"http\")` or `app.add_middleware(...)`. The middleware function receives the request and a `call_next` callable that continues the stack. ## Request timing\n\nA common pattern is to record a start timestamp, await `call_next(request)`, then attach an elapsed-time header on the response. Timing middleware must not block the event loop with synchronous heavy work.",
+      "groundedness": 1.0,
+      "failure_mode": "none"
+    },
+    {
+      "id": "q020",
+      "question": "Do unhandled path operation exceptions still flow through middleware?",
+      "relevant_chunk_ids": [
+        "fastapi.middleware.04"
+      ],
+      "retrieved": [
+        "fastapi.middleware.04",
+        "fastapi.middleware.02",
+        "fastapi.dependencies.01",
+        "fastapi.middleware.01",
+        "fastapi.cors.02"
+      ],
+      "answer": "## Exception awareness\n\nUnhandled exceptions raised inside path operations still flow through middleware. You can catch them around `call_next` to log failures or rewrite error responses consistently. ## Adding middleware\n\nRegister middleware with `@app.middleware(\"http\")` or `app.add_middleware(...)`. The middleware function receives the request and a `call_next` callable that continues the stack.",
+      "groundedness": 1.0,
+      "failure_mode": "none"
+    },
+    {
+      "id": "q021",
+      "question": "Why do browsers need CORS headers?",
+      "relevant_chunk_ids": [
+        "fastapi.cors.01"
+      ],
+      "retrieved": [
+        "fastapi.cors.01",
+        "fastapi.cors.02",
+        "fastapi.background_tasks.04",
+        "fastapi.middleware.03",
+        "fastapi.cors.04"
+      ],
+      "answer": "# Cross-Origin Resource Sharing (CORS)\n\nBrowsers enforce same-origin policy; CORS headers tell the browser which foreign origins may call your API from JavaScript. ## CORSMiddleware\n\nEnable CORS by adding Starlette's `CORSMiddleware` to the FastAPI application. Configure allowed origins, methods, and headers at registration time.",
+      "groundedness": 1.0,
+      "failure_mode": "none"
+    },
+    {
+      "id": "q022",
+      "question": "How do you enable CORS on a FastAPI application?",
+      "relevant_chunk_ids": [
+        "fastapi.cors.02"
+      ],
+      "retrieved": [
+        "fastapi.cors.02",
+        "fastapi.routing.04",
+        "fastapi.routing.01",
+        "fastapi.settings.01",
+        "fastapi.path_parameters.03"
+      ],
+      "answer": "## CORSMiddleware\n\nEnable CORS by adding Starlette's `CORSMiddleware` to the FastAPI application. Configure allowed origins, methods, and headers at registration time. ## Path operation order\n\nMore specific paths should be declared before catch-all patterns. FastAPI matches routes in registration order, so a static path can be shadowed by an earlier parameterized route.",
+      "groundedness": 1.0,
+      "failure_mode": "none"
+    },
+    {
+      "id": "q023",
+      "question": "How should allow_origins be configured for production?",
+      "relevant_chunk_ids": [
+        "fastapi.cors.03"
+      ],
+      "retrieved": [
+        "fastapi.cors.03",
+        "fastapi.security.02",
+        "fastapi.dependencies.04",
+        "fastapi.cors.04",
+        "fastapi.background_tasks.03"
+      ],
+      "answer": "## Allowed origins\n\nSet `allow_origins` to an explicit list of trusted front-end origins. Using `[\"*\"]` with credentials disabled is convenient for local demos but is rarely appropriate in production. ## OAuth2 password flow\n\n`OAuth2PasswordBearer` expects a token URL where clients exchange username and password for an access token. Protect routes by declaring the bearer scheme as a dependency.",
+      "groundedness": 1.0,
+      "failure_mode": "none"
+    },
+    {
+      "id": "q024",
+      "question": "What HTTP method do browsers use for CORS preflight?",
+      "relevant_chunk_ids": [
+        "fastapi.cors.04"
+      ],
+      "retrieved": [
+        "fastapi.cors.04",
+        "fastapi.path_parameters.04",
+        "fastapi.middleware.03",
+        "fastapi.routing.02",
+        "fastapi.dependencies.04"
+      ],
+      "answer": "## Preflight requests\n\nBrowsers send an `OPTIONS` preflight for non-simple cross-origin calls. `CORSMiddleware` answers those preflights using your configured methods and headers so the actual request can proceed. ## Path constraints\n\nUse `Path()` to attach validation rules: minimum and maximum values, string length bounds, and regex patterns. Constraints keep invalid identifiers from reaching business logic.",
+      "groundedness": 1.0,
+      "failure_mode": "none"
+    },
+    {
+      "id": "q025",
+      "question": "When do background tasks run relative to the HTTP response?",
+      "relevant_chunk_ids": [
+        "fastapi.background_tasks.01"
+      ],
+      "retrieved": [
+        "fastapi.background_tasks.01",
+        "fastapi.background_tasks.04",
+        "fastapi.background_tasks.02",
+        "fastapi.background_tasks.03",
+        "fastapi.middleware.03"
+      ],
+      "answer": "# Background tasks\n\nBackground tasks run work after the response has been sent, without blocking the client on secondary side effects. ## Error handling\n\nExceptions inside background tasks are logged by the server but do not change the HTTP status already sent to the client. Design tasks to be idempotent when retries are possible.",
+      "groundedness": 1.0,
+      "failure_mode": "none"
+    },
+    {
+      "id": "q026",
+      "question": "How do you schedule a background task in a path operation?",
+      "relevant_chunk_ids": [
+        "fastapi.background_tasks.02"
+      ],
+      "retrieved": [
+        "fastapi.background_tasks.02",
+        "fastapi.background_tasks.03",
+        "fastapi.background_tasks.01",
+        "fastapi.middleware.04",
+        "fastapi.security.04"
+      ],
+      "answer": "## BackgroundTasks parameter\n\nInject `BackgroundTasks` into a path operation. Call `background_tasks.add_task(func, *args)` to schedule work that executes after the response is returned. ## Typical uses\n\nSend confirmation emails, write audit logs, or invalidate caches as background tasks. Keep tasks short; long-running jobs belong in a dedicated worker queue.",
+      "groundedness": 1.0,
+      "failure_mode": "none"
+    },
+    {
+      "id": "q027",
+      "question": "How do you declare application settings with BaseSettings?",
+      "relevant_chunk_ids": [
+        "fastapi.settings.02"
+      ],
+      "retrieved": [
+        "fastapi.settings.01",
+        "fastapi.settings.02",
+        "fastapi.settings.04",
+        "fastapi.dependencies.01",
+        "fastapi.middleware.01"
+      ],
+      "answer": "# Application settings\n\nCentralize configuration with Pydantic settings models so environment variables and `.env` files feed typed fields. ## BaseSettings\n\nSubclass `BaseSettings` (or the Pydantic v2 settings base) to declare fields such as database URLs, debug flags, and feature toggles. Field names map to environment variables automatically.",
+      "groundedness": 1.0,
+      "failure_mode": "none"
+    },
+    {
+      "id": "q028",
+      "question": "How should path operations read configuration without globals?",
+      "relevant_chunk_ids": [
+        "fastapi.settings.04"
+      ],
+      "retrieved": [
+        "fastapi.settings.04",
+        "fastapi.path_parameters.03",
+        "fastapi.settings.01",
+        "fastapi.dependencies.01",
+        "fastapi.routing.04"
+      ],
+      "answer": "## Dependency injection of settings\n\nExpose a `get_settings` dependency that returns a cached settings instance. Path operations depend on it to read configuration without importing globals everywhere. ## Type conversion\n\nAnnotate path parameters with Python types such as `int` or `UUID`. FastAPI validates and converts the path segment before calling your function, returning a validation error when conversion fails.",
+      "groundedness": 1.0,
+      "failure_mode": "none"
+    },
+    {
+      "id": "q029",
+      "question": "What is the default request timeout in seconds?",
+      "relevant_chunk_ids": [
+        "mutable.config.02"
+      ],
+      "retrieved": [
+        "mutable.config.02",
+        "fastapi.connection_limits.03",
+        "fastapi.middleware.03",
+        "fastapi.cors.04",
+        "fastapi.settings.03"
+      ],
+      "answer": "## Default request timeout\n\ndefault_request_timeout_seconds = 60\n\nThe HTTP layer aborts in-flight client requests that exceed this request timeout of 60 seconds. Treat 60 as the authoritative default request timeout for this configuration version. ## Pool checkout timeout\n\nIf no free connection is available, checkout waits up to a pool timeout before failing. A pool checkout timeout is a resource-acquisition deadline, not the default request timeout used by the HTTP layer.",
+      "groundedness": 1.0,
+      "failure_mode": "stale-context"
+    },
+    {
+      "id": "q030",
+      "question": "What value should default_request_timeout_seconds have?",
+      "relevant_chunk_ids": [
+        "mutable.config.02"
+      ],
+      "retrieved": [
+        "mutable.config.02",
+        "fastapi.settings.03",
+        "fastapi.middleware.03",
+        "fastapi.connection_limits.03",
+        "fastapi.cors.03"
+      ],
+      "answer": "## Default request timeout\n\ndefault_request_timeout_seconds = 60\n\nThe HTTP layer aborts in-flight client requests that exceed this request timeout of 60 seconds. Treat 60 as the authoritative default request timeout for this configuration version. ## Environment overrides\n\nValues loaded from the environment override defaults defined on the settings class. Missing required fields raise a validation error at startup instead of failing mid-request.",
+      "groundedness": 1.0,
+      "failure_mode": "stale-context"
+    },
+    {
+      "id": "q031",
+      "question": "After how many seconds does the HTTP layer abort in-flight client requests?",
+      "relevant_chunk_ids": [
+        "mutable.config.02"
+      ],
+      "retrieved": [
+        "mutable.config.02",
+        "fastapi.dependencies.04",
+        "fastapi.connection_limits.02",
+        "fastapi.background_tasks.04",
+        "fastapi.security.03"
+      ],
+      "answer": "## Default request timeout\n\ndefault_request_timeout_seconds = 60\n\nThe HTTP layer aborts in-flight client requests that exceed this request timeout of 60 seconds. Treat 60 as the authoritative default request timeout for this configuration version. ## Class-based dependencies\n\nA class with a `__call__` method can act as a dependency. Instance state configured at construction time is available each time FastAPI invokes the class for a request.",
+      "groundedness": 1.0,
+      "failure_mode": "stale-context"
+    },
+    {
+      "id": "q032",
+      "question": "What is the authoritative default request timeout for the current config version?",
+      "relevant_chunk_ids": [
+        "mutable.config.02"
+      ],
+      "retrieved": [
+        "mutable.config.02",
+        "fastapi.cors.04",
+        "fastapi.middleware.03",
+        "fastapi.connection_limits.03",
+        "fastapi.security.04"
+      ],
+      "answer": "## Default request timeout\n\ndefault_request_timeout_seconds = 60\n\nThe HTTP layer aborts in-flight client requests that exceed this request timeout of 60 seconds. Treat 60 as the authoritative default request timeout for this configuration version. ## Preflight requests\n\nBrowsers send an `OPTIONS` preflight for non-simple cross-origin calls. `CORSMiddleware` answers those preflights using your configured methods and headers so the actual request can proceed.",
+      "groundedness": 1.0,
+      "failure_mode": "stale-context"
+    },
+    {
+      "id": "q033",
+      "question": "What is the default request timeout used by the HTTP layer?",
+      "relevant_chunk_ids": [
+        "mutable.config.02"
+      ],
+      "retrieved": [
+        "mutable.config.02",
+        "fastapi.connection_limits.03",
+        "fastapi.middleware.03",
+        "fastapi.background_tasks.04",
+        "fastapi.connection_limits.01"
+      ],
+      "answer": "## Default request timeout\n\ndefault_request_timeout_seconds = 60\n\nThe HTTP layer aborts in-flight client requests that exceed this request timeout of 60 seconds. Treat 60 as the authoritative default request timeout for this configuration version. ## Pool checkout timeout\n\nIf no free connection is available, checkout waits up to a pool timeout before failing. A pool checkout timeout is a resource-acquisition deadline, not the default request timeout used by the HTTP layer.",
+      "groundedness": 1.0,
+      "failure_mode": "ambiguous-ranking"
+    },
+    {
+      "id": "q034",
+      "question": "Which timeout aborts an in-flight HTTP client request?",
+      "relevant_chunk_ids": [
+        "mutable.config.02"
+      ],
+      "retrieved": [
+        "mutable.config.02",
+        "fastapi.connection_limits.03",
+        "fastapi.connection_limits.02",
+        "fastapi.middleware.03",
+        "fastapi.cors.04"
+      ],
+      "answer": "## Default request timeout\n\ndefault_request_timeout_seconds = 60\n\nThe HTTP layer aborts in-flight client requests that exceed this request timeout of 60 seconds. Treat 60 as the authoritative default request timeout for this configuration version. ## Pool checkout timeout\n\nIf no free connection is available, checkout waits up to a pool timeout before failing. A pool checkout timeout is a resource-acquisition deadline, not the default request timeout used by the HTTP layer.",
+      "groundedness": 1.0,
+      "failure_mode": "ambiguous-ranking"
+    },
+    {
+      "id": "q035",
+      "question": "Is the idle connection deadline the same as the default request timeout?",
+      "relevant_chunk_ids": [
+        "mutable.config.02"
+      ],
+      "retrieved": [
+        "mutable.config.02",
+        "fastapi.connection_limits.03",
+        "fastapi.connection_limits.02",
+        "fastapi.connection_limits.01",
+        "fastapi.middleware.03"
+      ],
+      "answer": "## Default request timeout\n\ndefault_request_timeout_seconds = 60\n\nThe HTTP layer aborts in-flight client requests that exceed this request timeout of 60 seconds. Treat 60 as the authoritative default request timeout for this configuration version. ## Pool checkout timeout\n\nIf no free connection is available, checkout waits up to a pool timeout before failing. A pool checkout timeout is a resource-acquisition deadline, not the default request timeout used by the HTTP layer.",
+      "groundedness": 1.0,
+      "failure_mode": "ambiguous-ranking"
+    },
+    {
+      "id": "q036",
+      "question": "For HTTP request handling, what deadline should be used: pool checkout timeout or default request timeout?",
+      "relevant_chunk_ids": [
+        "mutable.config.02"
+      ],
+      "retrieved": [
+        "fastapi.connection_limits.03",
+        "mutable.config.02",
+        "fastapi.middleware.03",
+        "fastapi.connection_limits.01",
+        "fastapi.connection_limits.02"
+      ],
+      "answer": "## Pool checkout timeout\n\nIf no free connection is available, checkout waits up to a pool timeout before failing. A pool checkout timeout is a resource-acquisition deadline, not the default request timeout used by the HTTP layer. ## Default request timeout\n\ndefault_request_timeout_seconds = 60\n\nThe HTTP layer aborts in-flight client requests that exceed this request timeout of 60 seconds. Treat 60 as the authoritative default request timeout for this configuration version.",
+      "groundedness": 1.0,
+      "failure_mode": "ambiguous-ranking"
+    },
+    {
+      "id": "q037",
+      "question": "What is the list price of Acme Cloud Enterprise?",
+      "relevant_chunk_ids": [],
+      "retrieved": [
+        "fastapi.middleware.03",
+        "fastapi.cors.04",
+        "fastapi.dependencies.04",
+        "fastapi.cors.03",
+        "fastapi.connection_limits.02"
+      ],
+      "answer": "INSUFFICIENT_CONTEXT",
+      "groundedness": 1.0,
+      "failure_mode": "unsupported-answer"
+    },
+    {
+      "id": "q038",
+      "question": "How many GPUs does the staging Kubernetes cluster have?",
+      "relevant_chunk_ids": [],
+      "retrieved": [
+        "fastapi.middleware.03",
+        "fastapi.security.04",
+        "fastapi.dependencies.04",
+        "fastapi.path_parameters.02",
+        "fastapi.dependencies.03"
+      ],
+      "answer": "INSUFFICIENT_CONTEXT",
+      "groundedness": 1.0,
+      "failure_mode": "unsupported-answer"
+    },
+    {
+      "id": "q039",
+      "question": "Who is the on-call engineer for payments this week?",
+      "relevant_chunk_ids": [],
+      "retrieved": [
+        "fastapi.dependencies.03",
+        "mutable.config.02",
+        "fastapi.security.03",
+        "fastapi.background_tasks.04",
+        "fastapi.middleware.03"
+      ],
+      "answer": "INSUFFICIENT_CONTEXT",
+      "groundedness": 1.0,
+      "failure_mode": "unsupported-answer"
+    },
+    {
+      "id": "q040",
+      "question": "What is the refund policy for digital gift cards?",
+      "relevant_chunk_ids": [],
+      "retrieved": [
+        "fastapi.dependencies.03",
+        "fastapi.background_tasks.02",
+        "fastapi.path_parameters.01",
+        "fastapi.security.03",
+        "fastapi.middleware.02"
+      ],
+      "answer": "INSUFFICIENT_CONTEXT",
+      "groundedness": 1.0,
+      "failure_mode": "unsupported-answer"
+    }
+  ]
+}

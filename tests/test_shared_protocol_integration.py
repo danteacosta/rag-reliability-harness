@@ -18,7 +18,7 @@ def test_closed_loop_manifest_validates_with_shared_protocol(tmp_path: Path) -> 
         golden_path=ROOT / "data" / "golden" / "set.jsonl",
         online_path=ROOT / "data" / "online" / "traffic_sample.jsonl",
         thresholds_path=ROOT / "eval" / "thresholds.yaml",
-        baseline_path=ROOT / "eval" / "baselines" / "ci.json",
+        baseline_path=ROOT / "eval" / "baselines" / "ci-retrieval-v2.json",
         metrics_path=tmp_path / "metrics.json",
         alert_path=tmp_path / "alert.json",
         status_path=tmp_path / "status.json",

@@ -7,14 +7,16 @@ from typing import Any
 
 import yaml
 
+from eval.metrics import METRIC_CONTRACT
 from rag_harness.reliability import GateDecision, GateReason
 from rag_harness.reliability import BaselineLifecycle
 
 DEFAULT_THRESHOLDS = Path("eval/thresholds.yaml")
-DEFAULT_BASELINE = Path("eval/baselines/ci.json")
+DEFAULT_BASELINE = Path("eval/baselines/ci-retrieval-v2.json")
 DEFAULT_METRICS = Path("eval/last_run.json")
 
 METRIC_KEYS = (
+    "metric_contract",
     "recall@5",
     "precision@5",
     "mrr",
@@ -111,6 +113,17 @@ def decide_gate(
             )
 
     max_slip = _validated_rules(thresholds, "max_slip", failures)
+    current_contract = metrics.get("metric_contract", "legacy-v1")
+    baseline_contract = baseline.get("metric_contract", "legacy-v1")
+    known_contracts = ("legacy-v1", METRIC_CONTRACT)
+    if (current_contract not in known_contracts or
+            (max_slip and (baseline_contract not in known_contracts or current_contract != baseline_contract))):
+        failures.append(GateReason(
+            "metric.contract_incompatible", "infra", "metric_contract", owner="infra",
+            message="Metric contract is unknown or incompatible with the comparison baseline; re-evaluate into a new artifact",
+        ))
+        max_slip = {}  # Do not report numerical slips across definitions.
+
     for key, slip_limit in max_slip.items():
         limit_number = _finite_number(slip_limit)
         if limit_number is None or limit_number < 0:

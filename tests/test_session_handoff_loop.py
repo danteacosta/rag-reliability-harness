@@ -13,7 +13,7 @@ def test_closed_loop_can_ingest_a_real_session_handoff(tmp_path: Path) -> None:
         golden_path=ROOT / "data" / "golden" / "set.jsonl",
         online_path=ROOT / "data" / "online" / "traffic_sample.jsonl",
         thresholds_path=ROOT / "eval" / "thresholds.yaml",
-        baseline_path=ROOT / "eval" / "baselines" / "ci.json",
+        baseline_path=ROOT / "eval" / "baselines" / "ci-retrieval-v2.json",
         runs_root=tmp_path / "runs",
         force_reingest=True,
         candidate_store_path=tmp_path / "candidates.jsonl",
